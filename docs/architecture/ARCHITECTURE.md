@@ -1,0 +1,157 @@
+# EDCMS — Architecture
+
+Status: Phase 0 design, no code exists yet. This is the blueprint Phase 1
+implementation must follow. Changes to anything in this file require an ADR
+in `docs/decisions/`.
+
+## System overview
+
+```
+                         EDCMS
+                           |
+          +----------------+----------------+
+          |                |                |
+       STAFF            DRIVER           CUSTOMER
+       PC/Web          Phone/Web         Phone/Web
+          |                |                |
+          +----------------+----------------+
+                           |
+                           v
+                  React + TypeScript
+                     (responsive UI)
+                           |
+                        REST API
+                           |
+                           v
+                  NestJS + TypeScript
+                  (modular monolith)
+                           |
+        +------------------+------------------+
+        |                  |                  |
+      Modules           Services          Security
+        |                  |                  |
+        +------------------+------------------+
+                           |
+                           v
+                      PostgreSQL
+                           |
+             +-------------+-------------+
+             |             |             |
+           Redis        Storage      External APIs
+                          (files)          |
+                                   +-------+--------+
+                                   |       |        |
+                                WhatsApp  Maps     EBM
+```
+
+- Frontend never talks to PostgreSQL directly — only through the REST API.
+- Redis and file storage are added when a concrete feature needs them
+  (sessions/queues, uploaded documents), not preemptively.
+- WhatsApp, Maps, and EBM are external integrations, each isolated behind
+  its own backend module so a missing/changed integration doesn't leak into
+  core business logic.
+
+## Backend: modular monolith
+
+One NestJS application, one deployable unit, organized by business domain
+module — not microservices.
+
+```
+backend/
+  src/
+    app.module.ts
+    config/
+    common/
+      decorators/ guards/ filters/ interceptors/ pipes/ middleware/ utils/
+    database/
+    modules/
+      auth/
+      users/
+      roles/
+      customers/
+      employees/
+      services/
+      orders/
+      laundry/
+      payments/
+      invoices/
+      pickups/
+      deliveries/
+      inventory/
+      notifications/
+      reports/
+      whatsapp/
+      ebm/
+      audit/
+    main.ts
+```
+
+Each module owns its controller, service, entities, DTOs, and tests:
+
+```
+orders/
+  orders.module.ts
+  orders.controller.ts
+  orders.service.ts
+  entities/order.entity.ts
+  dto/create-order.dto.ts
+  dto/update-order.dto.ts
+  tests/
+```
+
+Rules:
+- Controllers stay thin — validation via DTOs, business logic in services.
+- Cross-module access goes through the other module's exported service, not
+  direct entity/repository reach-through.
+- No module may be split into a separate deployable service without an ADR.
+
+## Frontend
+
+```
+frontend/
+  src/
+    app/
+    components/
+    layouts/
+    routes/
+    hooks/
+    lib/
+    services/        # API client calls
+    types/
+    features/
+      auth/ customers/ orders/ payments/ pickups/ deliveries/
+      inventory/ employees/ reports/ dashboard/
+    main.tsx
+```
+
+Three UI experiences from one app, gated by role/route:
+- **Staff** — desktop-first: dashboard, customers, orders, laundry,
+  payments, pickup, delivery, inventory, employees, reports, settings.
+- **Driver** — mobile-first, deliberately minimal: today's pickups/
+  deliveries, request detail, status action buttons only.
+- **Customer** — mobile-first: WhatsApp order button, request pickup, basic
+  order info, contact.
+
+## Cross-cutting concerns
+
+- **Auth:** JWT + refresh strategy, guards for route protection, decorators
+  for permission checks.
+- **Validation:** `class-validator`/`class-transformer` DTOs on every
+  endpoint.
+- **Error handling:** centralized exception filters on the backend;
+  frontend must handle loading/success/empty/error/unauthorized/forbidden/
+  validation-failure/network-failure states explicitly.
+- **Audit logging:** sensitive mutations (status changes, payments, order
+  edits) write to the `audit` module.
+- **API docs:** Swagger/OpenAPI generated from the NestJS app, kept in sync
+  with `docs/architecture/API.md` conventions.
+
+## Integrations (isolated modules)
+
+- **WhatsApp:** Phase 1A = click-to-chat link only. Business API is a later
+  phase behind the same `whatsapp` module boundary.
+- **Maps:** store lat/lng on customers and pickup/delivery requests; no live
+  tracking or routing in Phase 1.
+- **EBM:** module boundary exists; implementation blocked on client
+  discovery (see REQUIREMENTS.md open questions). Do not implement against
+  assumptions about the EBM device/API.
