@@ -62,3 +62,70 @@ shell → auth → dashboard → ... → driver/customer mobile). Linked from
 
 No frontend code yet — this is the spec the frontend scaffold and all
 subsequent frontend PRs build against.
+
+## 2026-08-26 (cont'd, 2)
+
+**Phase:** 1 — Foundation (frontend scaffold)
+
+Scaffolded `frontend/` (Vite + React 19 + TypeScript) and wired it to
+`docs/design/DESIGN-SYSTEM.md`: Tailwind CSS v4 (CSS-first `@theme` in
+`src/styles/tokens.css`) generates real utility classes from our actual
+color/font/radius/shadow tokens, Inter loaded via Google Fonts, and three
+base primitives (`Button`, `Card`, `Badge`, via `class-variance-authority`
++ a `cn()` clsx/tailwind-merge helper) prove the tokens work end to end.
+Also wired `react-router-dom` and `@tanstack/react-query` providers in
+`main.tsx`, and laid out the rest of the folder structure from
+`docs/architecture/ARCHITECTURE.md` (`app/`, `layouts/`, `hooks/`,
+`services/`, `types/`, and empty `features/*` for each business domain).
+
+`App.tsx` currently renders a temporary `SetupCheck` page (not a real
+feature) that exercises the primitives/tokens — to be replaced once the
+real app shell/navigation phase starts, per the priority order in
+DESIGN-SYSTEM.md.
+
+Verified: `npm run build` and `npm run lint` (oxlint — ships by default
+with the current Vite scaffold, so used as-is rather than swapping in
+ESLint) both pass; confirmed the compiled CSS actually contains our token
+values (e.g. `#1f8a70` under `bg-primary`); served the production build
+and got a 200 with the expected HTML/asset references. Could not do an
+actual visual/browser check — no browser automation tool available in
+this environment. Recommend opening it in a real browser before merging.
+
+**Note:** several installed package majors are newer than commonly
+documented online as of this session — React 19.2, Vite 8, Tailwind CSS 4
+(CSS-first `@theme` config, not the old `tailwind.config.js` + `@tailwind`
+directives), TypeScript ~6.0, and the Vite scaffold now ships `oxlint`
+instead of ESLint by default. Worth knowing if debugging against older
+tutorials/docs.
+
+No real pages yet — the app shell/navigation phase is next, per
+DESIGN-SYSTEM.md's build priority order.
+
+## 2026-08-26 (cont'd, 3)
+
+**Phase:** 1 — Foundation (staff app shell + navigation)
+
+Built the staff app shell per DESIGN-SYSTEM.md priority item #2:
+`src/layouts/AppShell.tsx` (desktop sidebar grouped Operations/Business/
+Insights/System, collapsible; topbar; mobile bottom nav) and
+`src/layouts/nav-config.ts` (single source of truth for both). Every nav
+destination routes to a real page via React Router — most render a
+`ComingSoon` placeholder (navigation is real, the feature isn't built
+yet), which replaces the temporary `SetupCheck` page from the previous
+phase.
+
+**Interpretive call worth flagging:** DESIGN-SYSTEM.md's mobile bottom
+nav is `Home · Orders · Jobs · More` without defining "Jobs" further.
+Implemented "Jobs" as the Laundry board (the doc's primary "what do I
+need to work on" view) and moved Pickup & Delivery into "More" on
+mobile, alongside Customers/Payments/Inventory/Reports/Employees/
+Settings. Flagged in the PR for confirmation; easy to change if wrong.
+
+No route protection yet (auth/RBAC is next), and the topbar search/
+notifications are visually present but disabled — not wired to fake
+functionality, since there's no backend to query yet.
+
+Verified: `npm run build` and `npm run lint` pass; served the production
+build and confirmed both `/` and a nested route (`/orders`) return 200
+via the SPA fallback. No visual/browser check possible (same tooling
+limitation as the previous entry).
