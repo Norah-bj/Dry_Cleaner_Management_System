@@ -48,6 +48,21 @@ flagging it since some TypeORM docs/examples found online will still be for
 
 No business modules yet — customers/orders/etc. are later phases.
 
+## 2026-08-26 (cont'd)
+
+**Phase:** 1 — Foundation (frontend design direction)
+
+Added `docs/design/DESIGN-SYSTEM.md`: the confirmed frontend design
+direction — "The Clean Journey" concept (garment-journey progress motif
+as the signature UI element), color/typography/spacing tokens, navigation
+IA, the design-system component inventory, condensed page-by-page UX
+direction, and the 17-step build priority order (design system → app
+shell → auth → dashboard → ... → driver/customer mobile). Linked from
+`CLAUDE.md`, `README.md`, and `ARCHITECTURE.md`.
+
+No frontend code yet — this is the spec the frontend scaffold and all
+subsequent frontend PRs build against.
+
 ## 2026-08-26 (cont'd, 2)
 
 **Phase:** 1 — Foundation (frontend scaffold)

@@ -107,6 +107,10 @@ Rules:
 
 ## Frontend
 
+Visual direction, design tokens, component inventory, and page-by-page UX
+are specified in [docs/design/DESIGN-SYSTEM.md](../design/DESIGN-SYSTEM.md)
+— this section covers folder structure only.
+
 ```
 frontend/
   src/

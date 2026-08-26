@@ -13,6 +13,11 @@ processing → payment → pickup/delivery. See [docs/requirements/REQUIREMENTS.
 for scope and [docs/requirements/BUSINESS-RULES.md](docs/requirements/BUSINESS-RULES.md)
 for confirmed business rules.
 
+**Frontend work specifically** must follow [docs/design/DESIGN-SYSTEM.md](docs/design/DESIGN-SYSTEM.md)
+— the "Clean Journey" concept, color/type tokens, component inventory, and
+build priority order are a settled design decision, not a suggestion. Don't
+invent a different palette, icon library, or page layout ad hoc.
+
 ## Stack (frozen — do not change without an ADR in docs/decisions/)
 
 - Frontend: React + TypeScript + Vite + Tailwind CSS
