@@ -11,9 +11,15 @@ export interface DatabaseConfig {
   database: string;
 }
 
+export interface AuthConfig {
+  jwtSecret: string;
+  jwtExpiresIn: string;
+}
+
 export interface Configuration {
   app: AppConfig;
   database: DatabaseConfig;
+  auth: AuthConfig;
 }
 
 const requireEnv = (key: string): string => {
@@ -35,5 +41,9 @@ export default (): Configuration => ({
     username: requireEnv('DATABASE_USER'),
     password: requireEnv('DATABASE_PASSWORD'),
     database: requireEnv('DATABASE_NAME'),
+  },
+  auth: {
+    jwtSecret: requireEnv('JWT_SECRET'),
+    jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '8h',
   },
 });

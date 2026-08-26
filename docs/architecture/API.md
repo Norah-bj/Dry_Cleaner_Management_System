@@ -7,6 +7,13 @@
   current as endpoints change — updating Swagger decorators is part of the
   same change, not a follow-up.
 - Auth: `Authorization: Bearer <JWT>` on every protected endpoint.
+- **Implemented so far:** `POST /api/v1/auth/login` only (secure-by-default
+  global guard - every other endpoint requires a valid token unless
+  `@Public()`). `POST /api/v1/auth/refresh` below is the target shape, not
+  yet built - see `docs/KNOWN-ISSUES.md`. The custom exception filter and
+  response envelope below are the target shape too; until that
+  cross-cutting phase lands, errors use NestJS's default `HttpException`
+  format (`statusCode`/`message`/`error`, no `path`/`timestamp`).
 
 ## Resource naming
 
