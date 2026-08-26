@@ -30,6 +30,8 @@ implementation will follow.
 - [docs/architecture/DATABASE.md](docs/architecture/DATABASE.md) — ERD.
 - [docs/architecture/API.md](docs/architecture/API.md) — API conventions.
 - [docs/decisions/](docs/decisions/) — architecture decision records.
+- [docs/design/DESIGN-SYSTEM.md](docs/design/DESIGN-SYSTEM.md) — frontend
+  design direction ("The Clean Journey"), tokens, and component inventory.
 
 ## Setup
 
