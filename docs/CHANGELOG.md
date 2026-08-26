@@ -47,3 +47,41 @@ flagging it since some TypeORM docs/examples found online will still be for
 `0.3.x`.
 
 No business modules yet — customers/orders/etc. are later phases.
+
+## 2026-08-26 (cont'd, 2)
+
+**Phase:** 1 — Foundation (frontend scaffold)
+
+Scaffolded `frontend/` (Vite + React 19 + TypeScript) and wired it to
+`docs/design/DESIGN-SYSTEM.md`: Tailwind CSS v4 (CSS-first `@theme` in
+`src/styles/tokens.css`) generates real utility classes from our actual
+color/font/radius/shadow tokens, Inter loaded via Google Fonts, and three
+base primitives (`Button`, `Card`, `Badge`, via `class-variance-authority`
++ a `cn()` clsx/tailwind-merge helper) prove the tokens work end to end.
+Also wired `react-router-dom` and `@tanstack/react-query` providers in
+`main.tsx`, and laid out the rest of the folder structure from
+`docs/architecture/ARCHITECTURE.md` (`app/`, `layouts/`, `hooks/`,
+`services/`, `types/`, and empty `features/*` for each business domain).
+
+`App.tsx` currently renders a temporary `SetupCheck` page (not a real
+feature) that exercises the primitives/tokens — to be replaced once the
+real app shell/navigation phase starts, per the priority order in
+DESIGN-SYSTEM.md.
+
+Verified: `npm run build` and `npm run lint` (oxlint — ships by default
+with the current Vite scaffold, so used as-is rather than swapping in
+ESLint) both pass; confirmed the compiled CSS actually contains our token
+values (e.g. `#1f8a70` under `bg-primary`); served the production build
+and got a 200 with the expected HTML/asset references. Could not do an
+actual visual/browser check — no browser automation tool available in
+this environment. Recommend opening it in a real browser before merging.
+
+**Note:** several installed package majors are newer than commonly
+documented online as of this session — React 19.2, Vite 8, Tailwind CSS 4
+(CSS-first `@theme` config, not the old `tailwind.config.js` + `@tailwind`
+directives), TypeScript ~6.0, and the Vite scaffold now ships `oxlint`
+instead of ESLint by default. Worth knowing if debugging against older
+tutorials/docs.
+
+No real pages yet — the app shell/navigation phase is next, per
+DESIGN-SYSTEM.md's build priority order.
