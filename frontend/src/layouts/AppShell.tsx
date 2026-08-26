@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Bell, ChevronLeft, ChevronRight, MoreHorizontal, Search } from 'lucide-react';
+import { Bell, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { navGroups, mobileNavItems } from './nav-config';
+import { UserMenu } from './UserMenu';
 
 /**
  * Staff app shell: desktop sidebar + topbar, mobile bottom nav.
@@ -39,17 +40,29 @@ export function AppShell() {
               </span>
             )}
           </div>
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            className="shrink-0 rounded-md p-1.5 text-text-muted hover:bg-border/50"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
+            )}
+          </button>
         </div>
 
-        <nav className="flex-1 space-y-6 overflow-y-auto p-3">
+        <nav className="flex-1 space-y-5 overflow-y-auto p-3">
           {navGroups.map((group) => (
             <div key={group.label}>
               {!collapsed && (
-                <p className="mb-2 px-2 text-xs font-medium tracking-wide text-text-muted uppercase">
+                <p className="mb-1 px-2 text-xs font-medium text-text-muted">
                   {group.label}
                 </p>
               )}
-              <ul className="space-y-1">
+              <ul className="space-y-0.5">
                 {group.items.map((item) => (
                   <li key={item.path}>
                     <NavLink
@@ -73,20 +86,7 @@ export function AppShell() {
           ))}
         </nav>
 
-        <div className="border-t border-border p-3">
-          <button
-            type="button"
-            onClick={() => setCollapsed((c) => !c)}
-            className="flex w-full items-center justify-center gap-2 rounded-md py-2 text-text-muted hover:bg-border/50"
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {collapsed ? (
-              <ChevronRight className="h-5 w-5" aria-hidden="true" />
-            ) : (
-              <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-            )}
-          </button>
-        </div>
+        <UserMenu collapsed={collapsed} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -106,19 +106,14 @@ export function AppShell() {
             />
           </label>
 
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              disabled
-              className="rounded-md p-2 text-text-muted disabled:cursor-not-allowed"
-              aria-label="Notifications (not yet available)"
-            >
-              <Bell className="h-5 w-5" aria-hidden="true" />
-            </button>
-            <span className="hidden text-sm font-medium text-text-muted md:inline">
-              Staff
-            </span>
-          </div>
+          <button
+            type="button"
+            disabled
+            className="rounded-md p-2 text-text-muted disabled:cursor-not-allowed"
+            aria-label="Notifications (not yet available)"
+          >
+            <Bell className="h-5 w-5" aria-hidden="true" />
+          </button>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-6 md:pb-6">
