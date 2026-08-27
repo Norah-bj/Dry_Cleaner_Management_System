@@ -129,3 +129,22 @@ Verified: `npm run build` and `npm run lint` pass; served the production
 build and confirmed both `/` and a nested route (`/orders`) return 200
 via the SPA fallback. No visual/browser check possible (same tooling
 limitation as the previous entry).
+
+## 2026-08-27
+
+**Phase:** 1 — Foundation (sidebar refinement)
+
+Reworked the desktop sidebar based on a reference layout the owner
+shared: group labels changed from uppercase/tracking-wide to plain
+title case; the collapse toggle moved from a sidebar footer button into
+the header row (`PanelLeftClose`/`PanelLeftOpen`); and a new
+`UserMenu.tsx` anchors user identity to the bottom of the sidebar
+(avatar, name/role placeholder, and a popover with "Profile & Settings"
+— a real link to `/settings` — and a disabled "Log out", since there's
+no auth session yet to end). Removed the now-redundant plain "Staff"
+label from the topbar.
+
+Verified: `npm run build` and `npm run lint` pass; served the production
+build and confirmed `/`, `/orders`, and `/settings` all return 200. No
+visual/browser check possible (no browser tool in this environment) —
+please look at it in `npm run dev` before merging.
