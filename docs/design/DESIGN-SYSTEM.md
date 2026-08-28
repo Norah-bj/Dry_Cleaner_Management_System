@@ -63,9 +63,11 @@ Never rely on color alone to convey status — pair with a label/icon
 
 **Typography:** one sans-serif family throughout — Inter or Plus Jakarta
 Sans. Optionally a distinct face only for the EBENEZER brand wordmark, not
-body UI. Scale: page title 28–32px, section title 18–20px, body 14–16px,
-labels 12–13px. Compact, not oversized — this is a working tool used all
-day, not a marketing page.
+body UI. Scale (revised 2026-08-29 — the owner explicitly doesn't want
+large text anywhere): page title 18px, section title 16px, body 13–14px,
+labels 11–12px. Compact, not oversized — this is a working tool used all
+day, not a marketing page. Original draft called for a larger scale
+(page title 28–32px); superseded by this one.
 
 **Icons:** one library only — Lucide. Never mix icon sets, never use emoji
 as primary UI icons (emoji are fine in this doc's mockups, not in the app).
