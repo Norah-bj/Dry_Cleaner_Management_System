@@ -383,3 +383,22 @@ backend module exists.
 Verified: `npm run build` and `npm run lint` pass; served the
 production build and confirmed `/` and `/orders` return 200. No
 visual/browser check possible (no browser tool in this environment).
+
+## 2026-08-29 (cont'd, 4)
+
+**Phase:** 1 — Foundation (recovering the Dashboard, third occurrence)
+
+**Third time this has happened**, same signature: PR #13 (Dashboard)
+showed merged on GitHub, but `frontend/src/features/dashboard/` and
+`components/ui/EmptyState.tsx` didn't exist on `main` and `App.tsx`
+still routed `/` to `ComingSoon`. Confirmed with the same ancestor
+check now used as standing practice before building on any recent
+merge. `feat/dashboard`'s branch was still intact on GitHub; merged it
+into a fresh branch off current `main` (clean, no conflicts), verified
+build/lint and that `DashboardPage`/`EmptyState` are genuinely present
+in the files, and opened it as a new PR.
+
+All three occurrences so far (#9, #11, #13) were PRs stacked on another
+PR's branch at merge time. Strongly flagging this pattern again -
+worth resolving on the GitHub side before it happens on something
+bigger.
