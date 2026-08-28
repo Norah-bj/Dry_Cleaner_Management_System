@@ -229,3 +229,68 @@ filter still open).
 
 Verified: `npm run build`, `npm run lint`, `npm test` (still 9 passing)
 all pass.
+
+## 2026-08-27 (cont'd, 4)
+
+**Phase:** 1 — Foundation (frontend authentication)
+
+Wired the frontend to the backend auth API (PR #7): a login page, a real
+session, and route protection — the second half of priority item #3 in
+`docs/design/DESIGN-SYSTEM.md`.
+
+- `lib/api-client.ts` — thin `fetch` wrapper: JSON in/out, attaches the
+  bearer token automatically, normalizes non-2xx responses into a typed
+  `ApiError`. `VITE_API_URL` env var, defaults to
+  `http://localhost:3000/api/v1` so no `.env` is required for local dev.
+- `lib/auth-storage.ts` — single source of truth for the persisted
+  session (`localStorage`), shared by the API client and the auth
+  context so a plain module and React state stay in sync.
+- `features/auth/{auth-context.ts,AuthProvider.tsx,use-auth.ts}` — split
+  into three files (context/provider/hook) specifically to satisfy
+  react-refresh's "only export components" rule, which `oxlint` flagged
+  as a real warning on the original single-file version.
+- `features/auth/LoginPage.tsx` — email/password form
+  (`react-hook-form` + `zod` validation), redirects to wherever the user
+  was headed before being bounced to `/login` (or `/`).
+- `routes/RequireAuth.tsx` — wraps the app-shell route tree; redirects
+  to `/login` (remembering the intended destination) when signed out.
+- `components/ui/Input.tsx` — new base primitive (first form in the
+  app), per the DESIGN-SYSTEM.md component inventory.
+- `layouts/UserMenu.tsx` and `routes/MoreMenu.tsx` — now show the real
+  signed-in user (name, role via a `ROLE_LABELS` map) and a working
+  "Log out" instead of the "Staff / Not signed in" placeholder and
+  disabled button from the sidebar-refinement phase.
+- `types/auth.ts` — `UserRole`/`AuthUser`/`LoginResponse`, mirroring
+  `backend/src/modules/users/entities/user.entity.ts`'s `UserRole` enum
+  by hand (no shared package between frontend/backend yet - if these
+  drift, this file needs a matching update).
+
+Verified: `npm run build` and `npm run lint` (0 problems, including
+fixing the real fast-refresh warning above) both pass; served the
+production build and confirmed `/login`, `/`, and `/orders` all return
+200. **Not verified: an actual login against the real backend** - this
+branch doesn't have PR #7's backend auth code checked out (separate
+branch), and this environment still has no working DB credentials
+either way. Please test for real once both PRs are merged: log in with
+the seeded admin account, confirm the sidebar/mobile menu show your real
+name and role, confirm Log out returns you to `/login`, and confirm
+visiting a protected route while signed out redirects to `/login` and
+back to where you were headed after signing in.
+
+## 2026-08-29
+
+**Phase:** 1 — Foundation (recovering lost work)
+
+Found that `main` was missing every file PR #9 added, despite GitHub
+showing PR #9 as merged: `git merge-base --is-ancestor` confirmed the
+merge commit exists but isn't an ancestor of `main`'s current tip - i.e.
+`main`'s history was rewritten to a point before that merge, not simply
+reverted on top. Cause unknown; not something this agent did. Did not
+force-push or reset anything to "fix" it - instead merged the
+still-intact `feat/frontend-auth` branch (verified correct, per its own
+merge commit's diff) into a fresh branch off current `main` and opened
+it as a normal PR, so the recovery goes through the same review process
+as everything else. Confirmed via build/lint and a served production
+build that every auth file (`features/auth/`, `lib/api-client.ts`,
+`lib/auth-storage.ts`, `routes/RequireAuth.tsx`) is present and intact
+in the recovered branch.
