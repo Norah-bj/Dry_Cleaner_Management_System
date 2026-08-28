@@ -4,6 +4,7 @@ import { ComingSoon } from './routes/ComingSoon'
 import { MoreMenu } from './routes/MoreMenu'
 import { RequireAuth } from './routes/RequireAuth'
 import { LoginPage } from './features/auth/LoginPage'
+import { DashboardPage } from './features/dashboard/DashboardPage'
 import { allNavItems } from './layouts/nav-config'
 
 function App() {
@@ -13,14 +14,17 @@ function App() {
 
       <Route element={<RequireAuth />}>
         <Route element={<AppShell />}>
-          {allNavItems.map((item) => (
-            <Route
-              key={item.path}
-              index={item.path === '/'}
-              path={item.path === '/' ? undefined : item.path.slice(1)}
-              element={<ComingSoon title={item.label} />}
-            />
-          ))}
+          {allNavItems.map((item) =>
+            item.path === '/' ? (
+              <Route key={item.path} index element={<DashboardPage />} />
+            ) : (
+              <Route
+                key={item.path}
+                path={item.path.slice(1)}
+                element={<ComingSoon title={item.label} />}
+              />
+            ),
+          )}
           <Route path="more" element={<MoreMenu />} />
         </Route>
       </Route>
