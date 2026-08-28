@@ -57,7 +57,7 @@ export function LoginPage() {
           <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
             E
           </span>
-          <h1 className="mt-3 text-lg font-semibold">EBENEZER</h1>
+          <h1 className="mt-3 text-base font-semibold">EBENEZER</h1>
           <p className="text-sm text-text-muted">Sign in to continue</p>
         </div>
 

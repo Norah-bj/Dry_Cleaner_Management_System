@@ -294,3 +294,33 @@ as everything else. Confirmed via build/lint and a served production
 build that every auth file (`features/auth/`, `lib/api-client.ts`,
 `lib/auth-storage.ts`, `routes/RequireAuth.tsx`) is present and intact
 in the recovered branch.
+
+## 2026-08-29 (cont'd)
+
+**Phase:** 1 — Foundation (topbar/typography polish + a real tsconfig fix)
+
+Three small owner-requested fixes:
+
+- Moved the sidebar collapse toggle out of the sidebar's own header and
+  into the topbar, at the boundary with the sidebar (desktop only - it
+  has no meaning on the mobile bottom-nav layout). Fixed a layout bug
+  this exposed: the topbar used `justify-between` assuming exactly two
+  children; with a third (the toggle) added, the mobile brand text and
+  notification bell would have collapsed together instead of spreading
+  to the edges. Given the mobile brand text `flex-1` instead.
+- Reduced heading sizes app-wide (`text-2xl` → `text-lg` for page titles
+  in `ComingSoon`/`MoreMenu`, `text-lg` → `text-base` for the login
+  page's wordmark) per explicit feedback: "I don't like big fonts."
+  Updated `docs/design/DESIGN-SYSTEM.md`'s typography scale to match
+  (page title 28–32px → 18px, section title 18–20px → 16px, body
+  14–16px → 13–14px, labels 12–13px → 11–12px) so this is the standing
+  rule for future pages, not a one-off.
+- `backend/tsconfig.json`: removed `baseUrl` — it was flagged as
+  deprecated (TS 6, removed in TS 7), and a check of every import in
+  `backend/src` confirmed nothing actually depends on non-relative
+  module resolution. Removed the dead option rather than suppressing
+  the warning with `ignoreDeprecations`.
+
+Verified: `npm run build` and `npm run lint` pass on both `frontend/`
+and `backend/`; served the production build and confirmed `/` and
+`/login` still return 200.
