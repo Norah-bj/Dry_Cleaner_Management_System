@@ -9,7 +9,7 @@ import { Card } from '../components/ui/Card';
 export function ComingSoon({ title }: { title: string }) {
   return (
     <div>
-      <h1 className="mb-4 text-2xl font-semibold">{title}</h1>
+      <h1 className="mb-4 text-lg font-semibold">{title}</h1>
       <Card>
         <p className="text-text-muted">
           {title} isn't built yet. Navigation to this page works; the
