@@ -324,3 +324,31 @@ Three small owner-requested fixes:
 Verified: `npm run build` and `npm run lint` pass on both `frontend/`
 and `backend/`; served the production build and confirmed `/` and
 `/login` still return 200.
+
+## 2026-08-29 (cont'd, 2)
+
+**Phase:** 1 — Foundation (recovering more lost work)
+
+**Same problem as the previous entry, second occurrence.** Before
+starting the Dashboard, checked precisely whether PR #10 and PR #11 were
+actually reachable from `main` (`git merge-base --is-ancestor <merge
+commit> origin/main`) rather than trusting GitHub's "merged" badge. PR
+#10 (the previous recovery) checked out fine - genuinely on `main`. PR
+#11 (topbar toggle move, smaller headings, dead `baseUrl` removal) did
+not - same signature as before: the merge commit exists but isn't an
+ancestor of `main`'s current tip.
+
+Recovered the same way: `fix/topbar-collapse-and-typography-v2` still
+existed on GitHub with the correct content, so merged it into a fresh
+branch off current `main` (clean merge, no conflicts) and opened it as
+a new PR rather than touching `main`'s history directly. Confirmed by
+grepping the actual file contents (not just trusting the merge output)
+that both fixes are genuinely present: the typography scale line reads
+"page title 18px" (not the original 28-32px), and the collapse toggle
+button is in the topbar's `<header>`, not the sidebar's `<aside>`.
+
+**This has now happened twice in a row**, both times to the frontend
+branch stacked on top of another PR at merge time. Flagged prominently
+in the PR for the owner to investigate on GitHub's side, since the
+agent can only observe git history, not whatever UI action is causing
+it.
