@@ -148,3 +148,73 @@ Verified: `npm run build` and `npm run lint` pass; served the production
 build and confirmed `/`, `/orders`, and `/settings` all return 200. No
 visual/browser check possible (no browser tool in this environment) —
 please look at it in `npm run dev` before merging.
+
+## 2026-08-27 (cont'd)
+
+**Phase:** 1 — Foundation (backend authentication)
+
+Added JWT authentication and RBAC to the backend, priority item #3 in
+`docs/design/DESIGN-SYSTEM.md`:
+
+- `modules/users` — `User` entity (email, argon2 password hash, full
+  name, fixed `role` enum, active flag) and a service for lookups/creation.
+  **No separate `roles`/`permissions` module** - the six roles from
+  `docs/requirements/REQUIREMENTS.md` are a fixed enum column, not a
+  dynamic table; `ARCHITECTURE.md` and `DATABASE.md` updated to match.
+- `modules/auth` — `POST /api/v1/auth/login` (validates credentials,
+  issues a JWT), `JwtStrategy`, and DTO validation on the request body.
+- `common/guards` — `JwtAuthGuard` applied **globally** (secure by
+  default: every endpoint requires a valid token unless marked
+  `@Public()`) and a `RolesGuard` driven by `@Roles(...)`. `/health` is
+  now `@Public()`.
+- `common/decorators` — `@Public()`, `@Roles()`, `@CurrentUser()`.
+- `main.ts` — global `/api/v1` prefix (health excluded, stays at
+  `/health`), a global `ValidationPipe` (whitelist/forbid-non-whitelisted/
+  transform), and Swagger served at `/api/docs`.
+- A hand-written migration for the `users` table (raw SQL, since
+  `migration:generate` needs a live DB connection this environment
+  doesn't have working credentials for - **not verified by actually
+  running it**, only by review; run `npm run migration:run` and report
+  back if it fails) and `npm run seed` to create the first `SUPER_ADMIN`
+  login from `ADMIN_EMAIL`/`ADMIN_PASSWORD` env vars (no user-management
+  UI yet - see `docs/KNOWN-ISSUES.md` #2).
+- Removed the unused default Nest boilerplate (`AppController`/
+  `AppService`/its spec) - dead code now that the guard wiring touched
+  `app.module.ts` anyway.
+- `docs/SECURITY.md`, `docs/KNOWN-ISSUES.md`, `docs/architecture/API.md`
+  updated to reflect what's actually implemented vs. still a target
+  (refresh tokens, rate limiting, CORS, security headers, exception
+  filter are all deferred - tracked in KNOWN-ISSUES).
+
+Verified: `npm run build`, `npm run lint`, and `npm test` all pass (9
+tests: `AuthService.validateUser`/`login` behavior including wrong
+password/inactive user/unknown email, and `RolesGuard` allow/deny paths).
+Booted the app with `start:dev` against a real local Postgres - every
+module up through `JwtModule` initializes correctly; confirmed the same
+pre-existing `password authentication failed` from placeholder
+credentials (not a code issue - see the backend-scaffold entry above).
+**Not verified: an actual login request against a real database** - this
+environment has no working DB credentials to run the migration and seed
+against. Please run `npm run migration:run`, `npm run seed`, and a real
+`POST /api/v1/auth/login` before merging.
+
+**Update:** the owner ran `start:dev` locally and confirmed the app boots
+all the way through against her real Postgres - `TypeOrmCoreModule`,
+`UsersModule`, and `AuthModule` all initialize, and both routes map
+correctly (`/health` public, `/api/v1/auth/login` under the prefix). The
+migration and DB wiring are confirmed working; only an actual login
+request is still unverified.
+
+## 2026-08-27 (cont'd, 2)
+
+**Phase:** 1 — Foundation (CORS)
+
+Added CORS support (`app.enableCors()` in `main.ts`, allowed origins from
+a new `CORS_ORIGINS` env var, default `http://localhost:5173`) - without
+it, the frontend login page (next up) would be blocked by the browser
+regardless of how correct the request is. `docs/KNOWN-ISSUES.md` #3
+updated (CORS item resolved, rate limiting/security headers/exception
+filter still open).
+
+Verified: `npm run build`, `npm run lint`, `npm test` (still 9 passing)
+all pass.

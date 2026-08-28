@@ -67,7 +67,6 @@ backend/
     modules/
       auth/
       users/
-      roles/
       customers/
       employees/
       services/
@@ -85,6 +84,12 @@ backend/
       audit/
     main.ts
 ```
+
+No separate `roles/` module: the six roles in
+`docs/requirements/REQUIREMENTS.md` §26 are a fixed enum on the `User`
+entity (`modules/users/entities/user.entity.ts`), not a database-driven
+roles/permissions table. Revisit only if dynamic role management becomes
+an actual requirement — don't build that ahead of need.
 
 Each module owns its controller, service, entities, DTOs, and tests:
 
@@ -138,17 +143,23 @@ Three UI experiences from one app, gated by role/route:
 
 ## Cross-cutting concerns
 
-- **Auth:** JWT + refresh strategy, guards for route protection, decorators
-  for permission checks.
+- **Auth:** JWT access tokens (`modules/auth`), a global `JwtAuthGuard`
+  (secure by default - every endpoint requires a valid token unless
+  explicitly marked `@Public()`) plus a `RolesGuard` driven by `@Roles()`.
+  A refresh-token strategy is not yet implemented - access tokens are
+  short-lived (`JWT_EXPIRES_IN`, default 8h) as an interim measure; see
+  `docs/KNOWN-ISSUES.md`.
 - **Validation:** `class-validator`/`class-transformer` DTOs on every
-  endpoint.
+  endpoint, enforced globally via `ValidationPipe` (whitelist,
+  forbid-non-whitelisted, auto-transform) in `main.ts`.
 - **Error handling:** centralized exception filters on the backend;
   frontend must handle loading/success/empty/error/unauthorized/forbidden/
   validation-failure/network-failure states explicitly.
 - **Audit logging:** sensitive mutations (status changes, payments, order
   edits) write to the `audit` module.
-- **API docs:** Swagger/OpenAPI generated from the NestJS app, kept in sync
-  with `docs/architecture/API.md` conventions.
+- **API docs:** Swagger/OpenAPI generated from the NestJS app, served at
+  `/api/docs` (outside the `/api/v1` prefix), kept in sync with
+  `docs/architecture/API.md` conventions.
 
 ## Integrations (isolated modules)
 
