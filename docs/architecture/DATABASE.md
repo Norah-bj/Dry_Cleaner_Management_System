@@ -7,7 +7,7 @@ implemented, against the rules in `docs/requirements/BUSINESS-RULES.md`.
 ## Entity list
 
 ```
-users, roles, permissions
+users (role is a fixed enum column, not a separate roles/permissions table - see ARCHITECTURE.md)
 customers, employees
 services, service_prices
 orders, order_items, order_status_history
@@ -39,11 +39,17 @@ erDiagram
     EMPLOYEE ||--o{ PICKUP_REQUEST : "assigned as driver"
     EMPLOYEE ||--o{ DELIVERY_REQUEST : "assigned as driver"
     USER ||--o| EMPLOYEE : "is"
-    ROLE ||--o{ USER : "assigned to"
-    ROLE ||--o{ PERMISSION : grants
     SUPPLIER ||--o{ INVENTORY_TRANSACTION : supplies
     INVENTORY_ITEM ||--o{ INVENTORY_TRANSACTION : tracks
 
+    USER {
+        uuid id PK
+        string email UK
+        string password_hash
+        string full_name
+        string role "super_admin|manager|receptionist|cashier|laundry_staff|driver"
+        boolean is_active
+    }
     CUSTOMER {
         uuid id PK
         string customer_number UK
@@ -168,6 +174,9 @@ erDiagram
   and reported on individually (see BUSINESS-RULES.md #4).
 - Foreign keys enforce referential integrity; no soft "just trust the
   frontend" relationships.
+- **`role` is a fixed enum on `users`, not a roles/permissions table.** The
+  six roles are set in `docs/requirements/REQUIREMENTS.md` and don't need
+  dynamic management yet; revisit only if that becomes a real requirement.
 
 ## Open items
 
