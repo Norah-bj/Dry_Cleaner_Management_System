@@ -18,7 +18,7 @@ export function MoreMenu() {
 
   return (
     <div>
-      <h1 className="mb-4 text-2xl font-semibold">More</h1>
+      <h1 className="mb-4 text-lg font-semibold">More</h1>
 
       {user && (
         <p className="mb-4 text-sm text-text-muted">

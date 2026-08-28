@@ -26,32 +26,18 @@ export function AppShell() {
           collapsed ? 'w-16' : 'w-64',
         )}
       >
-        <div className="flex h-16 items-center justify-between border-b border-border px-4">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
-              E
-            </span>
-            {!collapsed && (
-              <span className="truncate text-sm font-semibold">
-                EBENEZER
-                <span className="block text-xs font-normal text-text-muted">
-                  Dry Cleaner
-                </span>
+        <div className="flex h-16 items-center gap-2 overflow-hidden border-b border-border px-4">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-semibold text-primary-foreground">
+            E
+          </span>
+          {!collapsed && (
+            <span className="truncate text-sm font-semibold">
+              EBENEZER
+              <span className="block text-xs font-normal text-text-muted">
+                Dry Cleaner
               </span>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => setCollapsed((c) => !c)}
-            className="shrink-0 rounded-md p-1.5 text-text-muted hover:bg-border/50"
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {collapsed ? (
-              <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
-            ) : (
-              <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
-            )}
-          </button>
+            </span>
+          )}
         </div>
 
         <nav className="flex-1 space-y-5 overflow-y-auto p-3">
@@ -90,8 +76,21 @@ export function AppShell() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-surface px-4 md:px-6">
-          <span className="text-sm font-semibold md:hidden">EBENEZER</span>
+        <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-surface px-4 md:px-6">
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            className="hidden shrink-0 rounded-md p-1.5 text-text-muted hover:bg-border/50 md:flex"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
+            )}
+          </button>
+
+          <span className="flex-1 text-sm font-semibold md:hidden">EBENEZER</span>
 
           <label className="relative hidden max-w-sm flex-1 md:block">
             <Search
