@@ -18,11 +18,14 @@ to add staff accounts. Deferred to the Employees module phase (priority
 
 Status: Planned
 
-## #3 — No rate limiting, CORS restriction, or security headers yet
+## #3 — No rate limiting or security headers yet
 
 Listed in `docs/SECURITY.md` as required before production; not built as
 of the auth phase. Also no centralized exception filter yet (errors use
 NestJS's default `HttpException` format) - that's the cross-cutting
 Foundation phase, not yet started.
+
+CORS is done (`CORS_ORIGINS` env var, see `.env.example`) - resolved as
+of the CORS changelog entry, no longer part of this item.
 
 Status: Planned

@@ -178,3 +178,24 @@ credentials (not a code issue - see the backend-scaffold entry above).
 environment has no working DB credentials to run the migration and seed
 against. Please run `npm run migration:run`, `npm run seed`, and a real
 `POST /api/v1/auth/login` before merging.
+
+**Update:** the owner ran `start:dev` locally and confirmed the app boots
+all the way through against her real Postgres - `TypeOrmCoreModule`,
+`UsersModule`, and `AuthModule` all initialize, and both routes map
+correctly (`/health` public, `/api/v1/auth/login` under the prefix). The
+migration and DB wiring are confirmed working; only an actual login
+request is still unverified.
+
+## 2026-08-27 (cont'd, 2)
+
+**Phase:** 1 — Foundation (CORS)
+
+Added CORS support (`app.enableCors()` in `main.ts`, allowed origins from
+a new `CORS_ORIGINS` env var, default `http://localhost:5173`) - without
+it, the frontend login page (next up) would be blocked by the browser
+regardless of how correct the request is. `docs/KNOWN-ISSUES.md` #3
+updated (CORS item resolved, rate limiting/security headers/exception
+filter still open).
+
+Verified: `npm run build`, `npm run lint`, `npm test` (still 9 passing)
+all pass.

@@ -4,11 +4,12 @@ This is a real business system handling customer data and payments. Minimum
 bar, all required before Phase 1 is considered production-ready:
 
 **Status as of the auth phase:** password hashing (argon2), JWT
-authentication, and server-side authorization (global `JwtAuthGuard` +
-`RolesGuard`) are implemented. Refresh-token rotation, rate limiting, CORS
-restriction, secure headers, and audit logging are not yet built — see
-`docs/KNOWN-ISSUES.md`. Don't assume anything below is done just because
-it's listed here; this file is the target bar, not a status report.
+authentication, server-side authorization (global `JwtAuthGuard` +
+`RolesGuard`), and CORS restriction (`CORS_ORIGINS`) are implemented.
+Refresh-token rotation, rate limiting, secure headers, and audit logging
+are not yet built — see `docs/KNOWN-ISSUES.md`. Don't assume anything
+below is done just because it's listed here; this file is the target
+bar, not a status report.
 
 - Passwords hashed with Argon2 or bcrypt — never plaintext, never reversibly
   encrypted.

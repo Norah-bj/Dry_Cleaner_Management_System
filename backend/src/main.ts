@@ -11,6 +11,10 @@ async function bootstrap() {
   const appConfig = configService.get<AppConfig>('app');
 
   app.setGlobalPrefix('api/v1', { exclude: ['health'] });
+  app.enableCors({
+    origin: appConfig?.corsOrigins,
+    credentials: true,
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

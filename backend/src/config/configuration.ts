@@ -1,6 +1,7 @@
 export interface AppConfig {
   env: string;
   port: number;
+  corsOrigins: string[];
 }
 
 export interface DatabaseConfig {
@@ -34,6 +35,10 @@ export default (): Configuration => ({
   app: {
     env: process.env.NODE_ENV ?? 'development',
     port: parseInt(process.env.PORT ?? '3000', 10),
+    corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:5173')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean),
   },
   database: {
     host: requireEnv('DATABASE_HOST'),
