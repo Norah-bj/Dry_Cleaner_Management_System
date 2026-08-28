@@ -276,3 +276,21 @@ the seeded admin account, confirm the sidebar/mobile menu show your real
 name and role, confirm Log out returns you to `/login`, and confirm
 visiting a protected route while signed out redirects to `/login` and
 back to where you were headed after signing in.
+
+## 2026-08-29
+
+**Phase:** 1 — Foundation (recovering lost work)
+
+Found that `main` was missing every file PR #9 added, despite GitHub
+showing PR #9 as merged: `git merge-base --is-ancestor` confirmed the
+merge commit exists but isn't an ancestor of `main`'s current tip - i.e.
+`main`'s history was rewritten to a point before that merge, not simply
+reverted on top. Cause unknown; not something this agent did. Did not
+force-push or reset anything to "fix" it - instead merged the
+still-intact `feat/frontend-auth` branch (verified correct, per its own
+merge commit's diff) into a fresh branch off current `main` and opened
+it as a normal PR, so the recovery goes through the same review process
+as everything else. Confirmed via build/lint and a served production
+build that every auth file (`features/auth/`, `lib/api-client.ts`,
+`lib/auth-storage.ts`, `routes/RequireAuth.tsx`) is present and intact
+in the recovered branch.
