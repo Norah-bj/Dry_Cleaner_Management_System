@@ -151,6 +151,17 @@ please look at it in `npm run dev` before merging.
 
 ## 2026-08-27 (cont'd)
 
+**Phase:** 1 — Foundation (sidebar polish)
+
+Fixed a bug in `UserMenu`'s popover: it was width-bound to the sidebar's
+own width (`inset-x-3`), so in the collapsed (icon-only) state the menu
+rendered at ~40px wide with wrapped, unreadable text. Now uses a fixed
+`w-56` anchored to the sidebar's left edge regardless of collapsed state.
+Also added a hover tooltip on the collapsed trigger and a chevron that
+flips when the menu is open, so it reads as clickable in both states.
+
+## 2026-08-27 (cont'd, 2)
+
 **Phase:** 1 — Foundation (backend authentication)
 
 Added JWT authentication and RBAC to the backend, priority item #3 in
@@ -205,7 +216,7 @@ correctly (`/health` public, `/api/v1/auth/login` under the prefix). The
 migration and DB wiring are confirmed working; only an actual login
 request is still unverified.
 
-## 2026-08-27 (cont'd, 2)
+## 2026-08-27 (cont'd, 3)
 
 **Phase:** 1 — Foundation (CORS)
 

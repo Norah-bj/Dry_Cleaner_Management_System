@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, Settings, User } from 'lucide-react';
+import { ChevronUp, LogOut, Settings, User } from 'lucide-react';
 import { cn } from '../lib/cn';
 
 /**
@@ -32,7 +32,7 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
   return (
     <div ref={rootRef} className="relative border-t border-border p-3">
       {open && (
-        <div className="absolute inset-x-3 bottom-full mb-2 overflow-hidden rounded-md border border-border bg-surface shadow-md">
+        <div className="absolute bottom-full left-3 mb-2 w-56 overflow-hidden rounded-md border border-border bg-surface shadow-md">
           <Link
             to="/settings"
             onClick={() => setOpen(false)}
@@ -62,19 +62,29 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
         )}
         aria-expanded={open}
         aria-label="Account menu"
+        title={collapsed ? 'Account menu' : undefined}
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-light text-primary">
           <User className="h-4 w-4" aria-hidden="true" />
         </span>
         {!collapsed && (
-          <span className="min-w-0 flex-1 text-left">
-            <span className="block truncate text-sm font-medium text-text">
-              Staff
+          <>
+            <span className="min-w-0 flex-1 text-left">
+              <span className="block truncate text-sm font-medium text-text">
+                Staff
+              </span>
+              <span className="block truncate text-xs text-text-muted">
+                Not signed in
+              </span>
             </span>
-            <span className="block truncate text-xs text-text-muted">
-              Not signed in
-            </span>
-          </span>
+            <ChevronUp
+              className={cn(
+                'h-4 w-4 shrink-0 text-text-muted transition-transform',
+                open && 'rotate-180',
+              )}
+              aria-hidden="true"
+            />
+          </>
         )}
       </button>
     </div>
