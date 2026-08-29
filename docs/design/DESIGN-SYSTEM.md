@@ -132,6 +132,11 @@ designed by a different session.
 
 ## Page direction (condensed)
 
+Full per-page detail (exact sections, tabs, statuses, RBAC matrix, and
+the sprint build order) lives in
+[docs/design/PAGES.md](PAGES.md) — this section is the quick-reference
+summary; that file is the actual spec to build against.
+
 - **Dashboard** — a short "good morning" header + one operational-overview
   block (today's orders/revenue/ready/pickups/deliveries/outstanding), a
   "needs attention" list (ready-for-collection), today's pickups/deliveries
@@ -225,3 +230,10 @@ Build in this order — each phase is small enough to be its own PR, per
 
 Mobile and desktop are designed together at each phase — never "build
 desktop, then make it responsive later."
+
+This is the same order as [PAGES.md](PAGES.md)'s "Build order (sprints)"
+section, just grouped into named sprints there (e.g. its Sprint 4
+"Orders" covers items 6–8 here). Items 1–3 are done; item 4 (Dashboard)
+shipped as an honest empty-state shell, not yet wired to real data —
+that wiring happens as Orders/Payments/etc. exist to feed it. Item 5
+(Customers) is next.
