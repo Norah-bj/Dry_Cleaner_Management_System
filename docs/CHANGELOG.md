@@ -434,3 +434,20 @@ production build on a separate port and confirmed all 11 routes
 (`/`, `/orders`, `/laundry`, `/pickup-delivery`, `/customers`,
 `/payments`, `/inventory`, `/employees`, `/reports`, `/settings`,
 `/login`) return 200.
+
+## 2026-08-29 (cont'd, 6)
+
+**Phase:** 1 — Foundation (fixed sidebar/topbar)
+
+Fixed a real layout bug the owner reported: the sidebar and topbar
+scrolled away with the page instead of staying in place. Root cause:
+`AppShell`'s outer container used `min-h-screen` (a *minimum*, not a
+cap) - once a page's content (e.g. Laundry's wide Kanban row) exceeded
+the viewport height, the whole container grew past the viewport and
+the browser scrolled the entire page, dragging the sidebar/topbar
+along with it. Changed to `h-screen overflow-hidden`, which locks the
+shell to exactly the viewport height and forces overflow to be
+absorbed by `<main>`'s own `overflow-y-auto` instead - sidebar and
+topbar now stay fixed, only the content area scrolls.
+
+Verified: `npm run build` and `npm run lint` pass.
