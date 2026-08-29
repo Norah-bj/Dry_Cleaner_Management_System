@@ -114,13 +114,19 @@ Rules:
 
 Visual direction, design tokens, component inventory, and page-by-page UX
 are specified in [docs/design/DESIGN-SYSTEM.md](../design/DESIGN-SYSTEM.md)
-— this section covers folder structure only.
+and [docs/design/PAGES.md](../design/PAGES.md) — this section covers
+folder structure only.
 
 ```
 frontend/
   src/
     app/
     components/
+      ui/            # generic primitives: Button, Card, Badge, EmptyState, ...
+      orders/        # domain-specific reusable pieces: OrderCard, ...
+      customers/     # CustomerCard, ...
+      payments/      # PaymentSummary, ...
+      inventory/     # InventoryAlert, ...
     layouts/
     routes/
     hooks/
@@ -129,9 +135,14 @@ frontend/
     types/
     features/
       auth/ customers/ orders/ payments/ pickups/ deliveries/
-      inventory/ employees/ reports/ dashboard/
+      inventory/ employees/ reports/ dashboard/ laundry/ settings/
     main.tsx
 ```
+
+`features/<domain>/` holds the route-level page component for that
+domain. `components/<domain>/` holds pieces reused by *more than one*
+page — extract into it the moment a second consumer appears, not
+preemptively. `components/ui/` stays domain-agnostic.
 
 Three UI experiences from one app, gated by role/route:
 - **Staff** — desktop-first: dashboard, customers, orders, laundry,

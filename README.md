@@ -4,9 +4,11 @@ Business operations system for EBENEZER DRY CLEANER (Nyamata, Bugesera,
 Rwanda), covering the full order lifecycle: customer registration → garment
 intake → processing → payment → pickup/delivery.
 
-**Status:** Phase 0 — Discovery. No application code yet; this repository
-currently holds the planning/architecture documentation that Phase 1
-implementation will follow.
+**Status:** Phase 1 — Foundation, in progress. Backend (auth/RBAC) and
+frontend (app shell, login, and a real page for every nav item) are
+running; business features (Orders, Customers, etc.) are being built one
+at a time — see [docs/design/PAGES.md](docs/design/PAGES.md) for the
+build order and [docs/CHANGELOG.md](docs/CHANGELOG.md) for what's landed.
 
 ## Stack
 
@@ -32,7 +34,31 @@ implementation will follow.
 - [docs/decisions/](docs/decisions/) — architecture decision records.
 - [docs/design/DESIGN-SYSTEM.md](docs/design/DESIGN-SYSTEM.md) — frontend
   design direction ("The Clean Journey"), tokens, and component inventory.
+- [docs/design/PAGES.md](docs/design/PAGES.md) — detailed spec for every
+  page, RBAC matrix, and the sprint build order.
 
 ## Setup
 
-Not yet available — `frontend/` and `backend/` are scaffolded in Phase 1.
+Prerequisites: Node.js, a running local PostgreSQL.
+
+**Backend:**
+
+```
+cd backend
+npm install
+cp .env.example .env    # fill in DATABASE_*, JWT_SECRET, CORS_ORIGINS
+npm run migration:run
+ADMIN_EMAIL=you@example.com ADMIN_PASSWORD=... ADMIN_NAME="Your Name" npm run seed
+npm run start:dev       # http://localhost:3000, Swagger at /api/docs
+```
+
+**Frontend:**
+
+```
+cd frontend
+npm install
+npm run dev              # http://localhost:5173
+```
+
+Open the frontend URL, sign in with the `ADMIN_EMAIL`/`ADMIN_PASSWORD`
+you seeded above.

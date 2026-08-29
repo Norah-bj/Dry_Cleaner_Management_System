@@ -451,3 +451,25 @@ absorbed by `<main>`'s own `overflow-y-auto` instead - sidebar and
 topbar now stay fixed, only the content area scrolls.
 
 Verified: `npm run build` and `npm run lint` pass.
+
+## 2026-08-29 (cont'd, 7)
+
+**Phase:** 1 — Foundation (page specifications)
+
+Added `docs/design/PAGES.md`: a detailed page-by-page specification
+from the owner, covering exact sections/tabs/statuses for every page
+(Dashboard, Orders, New Order, Laundry, Pickup & Delivery, Customers +
+Profile, Payments, Inventory, Employees + Profile, Reports, Settings +
+sub-pages, Order Details, the paper receipt/order slip, Express/Same-
+Day visualization, the customer-facing pickup request, customer mobile
+web, and role-aware mobile staff nav), a `components/<domain>/` vs.
+`features/<domain>/` folder convention, an illustrative RBAC permission
+matrix to inform backend `@Roles()` decisions later, and a named-sprint
+build order (same sequence as DESIGN-SYSTEM.md's existing priority
+list - Sprints 1-2 done, Sprint 3 "Customers" next).
+
+`docs/design/DESIGN-SYSTEM.md` and `docs/architecture/ARCHITECTURE.md`
+updated to cross-reference it. `README.md`'s Status and Setup sections
+were also badly stale (still said "Phase 0, no application code yet" /
+"not yet available") - corrected with the current status and real
+setup steps (env vars, migration, seed, both dev servers).
