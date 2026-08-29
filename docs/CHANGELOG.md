@@ -352,3 +352,53 @@ branch stacked on top of another PR at merge time. Flagged prominently
 in the PR for the owner to investigate on GitHub's side, since the
 agent can only observe git history, not whatever UI action is causing
 it.
+
+## 2026-08-29 (cont'd, 3)
+
+**Phase:** 1 — Foundation (Dashboard)
+
+Built the Dashboard, priority item #4 in `docs/design/DESIGN-SYSTEM.md`
+- the first real feature page, replacing the `ComingSoon` placeholder
+at `/`.
+
+- `components/ui/EmptyState.tsx` - new primitive from the design
+  system's inventory: icon + title + description, never a bare "No
+  data."
+- `features/dashboard/DashboardPage.tsx` - real greeting (time-of-day
+  logic, the signed-in user's first name) and real current date, then
+  the sections from the design doc's page direction: a "Today"
+  overview, "Ready for collection", today's pickups/deliveries side by
+  side, and a laundry-flow summary.
+
+**Deliberately not wired to live data.** There's no Orders/Payments/
+Pickups/Deliveries backend yet - those are later phases - so every
+data section renders its real `EmptyState` with a specific,
+honest message about what will appear there and when, rather than
+fabricated zero-valued stats or a fake API call that would just 404.
+This is real, structurally complete work (the actual layout, real
+auth-derived greeting, real date), not a placeholder - only the data
+source is deferred. Swap each `EmptyState` for a live query once its
+backend module exists.
+
+Verified: `npm run build` and `npm run lint` pass; served the
+production build and confirmed `/` and `/orders` return 200. No
+visual/browser check possible (no browser tool in this environment).
+
+## 2026-08-29 (cont'd, 4)
+
+**Phase:** 1 — Foundation (recovering the Dashboard, third occurrence)
+
+**Third time this has happened**, same signature: PR #13 (Dashboard)
+showed merged on GitHub, but `frontend/src/features/dashboard/` and
+`components/ui/EmptyState.tsx` didn't exist on `main` and `App.tsx`
+still routed `/` to `ComingSoon`. Confirmed with the same ancestor
+check now used as standing practice before building on any recent
+merge. `feat/dashboard`'s branch was still intact on GitHub; merged it
+into a fresh branch off current `main` (clean, no conflicts), verified
+build/lint and that `DashboardPage`/`EmptyState` are genuinely present
+in the files, and opened it as a new PR.
+
+All three occurrences so far (#9, #11, #13) were PRs stacked on another
+PR's branch at merge time. Strongly flagging this pattern again -
+worth resolving on the GitHub side before it happens on something
+bigger.
