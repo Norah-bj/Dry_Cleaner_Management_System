@@ -6,6 +6,7 @@ import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { CustomersModule } from './modules/customers/customers.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -19,6 +20,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     HealthModule,
     UsersModule,
     AuthModule,
+    CustomersModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

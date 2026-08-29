@@ -473,3 +473,45 @@ updated to cross-reference it. `README.md`'s Status and Setup sections
 were also badly stale (still said "Phase 0, no application code yet" /
 "not yet available") - corrected with the current status and real
 setup steps (env vars, migration, seed, both dev servers).
+
+## 2026-08-29 (cont'd, 8)
+
+**Phase:** 1 — Foundation (Customers backend — Sprint 3)
+
+First real business module: `modules/customers` (`Customer` entity,
+service, controller, DTOs). `POST/GET/PATCH /api/v1/customers` +
+`GET /api/v1/customers/:id`, list endpoint supports pagination and a
+`search` param matching name/phone/customer number
+(case-insensitive), following the response envelope
+(`{data, meta}`) documented in `docs/architecture/API.md` for the
+first time. New shared `common/dto/pagination-query.dto.ts` and
+`common/types/paginated-result.ts` for reuse by future list endpoints.
+
+`customer_number` (e.g. `C-00001`) is generated from a dedicated
+Postgres sequence created in the migration, so concurrent creates
+never collide. The `C-XXXXX` format is illustrative only (matches
+every mockup across `docs/design/`) - not a client-confirmed
+numbering scheme, and centralized in one place if it needs to change.
+
+RBAC: read is open to any authenticated user (e.g. laundry staff
+confirming whose order they're holding); create/update restricted to
+Super Admin/Manager/Receptionist/Cashier via `@Roles()` - the first
+real use of the `RolesGuard` wired since the auth phase. This split is
+a judgment call (not in `docs/design/PAGES.md`'s permission matrix,
+which doesn't list Customers explicitly), flagged in the PR.
+
+A real bug caught by actually running the migration (not just
+building): `alternativePhone`/`address`/`notes` typed `string | null`
+made TypeORM's reflection-based type inference fail
+(`DataTypeNotSupportedError: Data type "Object"... not supported`) -
+fixed by adding explicit `type: 'varchar'` to those columns.
+
+Verified for real, not just built: ran the migration against a real
+Postgres, booted the app (on a spare port, since the owner had her own
+instance running on 3000 - didn't touch it), logged in with the seeded
+admin account, and exercised every endpoint over HTTP - create,
+list, search, get-by-id, update, a validation failure (missing
+`name` → 400 with a clear message), a 404 for an unknown id, and
+confirmed unauthenticated requests get 401. Deleted the test customer
+created during verification afterward. `npm run build`, `npm run
+lint`, `npm test` (14/14, 5 new) all pass.
