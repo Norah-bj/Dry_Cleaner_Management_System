@@ -402,3 +402,35 @@ All three occurrences so far (#9, #11, #13) were PRs stacked on another
 PR's branch at merge time. Strongly flagging this pattern again -
 worth resolving on the GitHub side before it happens on something
 bigger.
+
+## 2026-08-29 (cont'd, 5)
+
+**Phase:** 1 — Foundation (every nav destination gets a real page)
+
+Every item in the sidebar/mobile nav now has a real page instead of
+the generic `ComingSoon` placeholder - `OrdersPage`, `LaundryPage`,
+`PickupDeliveryPage`, `CustomersPage`, `PaymentsPage`, `InventoryPage`,
+`EmployeesPage`, `ReportsPage`, `SettingsPage` - priority items #5-6,
+#9-15 in `docs/design/DESIGN-SYSTEM.md`. `ComingSoon.tsx` removed
+(orphaned - nothing references it anymore).
+
+Same honest-empty-state approach as the Dashboard: filters/tabs/range
+selectors are real interactive state where the design doc calls for
+them (Orders' status filter, Pickup & Delivery's tabs, Reports' date
+range), "+ New X" actions are disabled with a tooltip explaining why
+rather than linking to flows that don't exist, and every data section
+is a real `EmptyState` (or, for Settings, a grouped list marked "Not
+yet available") rather than fabricated numbers - there's still no
+Orders/Customers/Payments/Inventory/Employees backend. New
+`components/ui/PageHeader.tsx` primitive shared across all of them.
+
+This isn't the final design for any of these pages - it's real,
+reviewable structure for every screen so the app can be clicked
+through end to end, with specific pages then refined one at a time
+based on what's actually needed.
+
+Verified: `npm run build` and `npm run lint` pass; served the
+production build on a separate port and confirmed all 11 routes
+(`/`, `/orders`, `/laundry`, `/pickup-delivery`, `/customers`,
+`/payments`, `/inventory`, `/employees`, `/reports`, `/settings`,
+`/login`) return 200.
