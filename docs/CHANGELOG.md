@@ -473,3 +473,38 @@ updated to cross-reference it. `README.md`'s Status and Setup sections
 were also badly stale (still said "Phase 0, no application code yet" /
 "not yet available") - corrected with the current status and real
 setup steps (env vars, migration, seed, both dev servers).
+
+## 2026-08-29 (cont'd, 8)
+
+**Phase:** 1 — Foundation (Customers frontend — Sprint 3)
+
+Wires the real customers frontend to the backend module from PR #19:
+`CustomersPage` (real list via TanStack Query, debounced search,
+pagination), `NewCustomerPage` (full page, not a modal - per
+DESIGN-SYSTEM.md's rule that anything beyond a quick confirmation gets
+a page or drawer), and `CustomerProfilePage` (real Overview tab -
+contact info plus genuine-zero Total Orders/Spent/Outstanding stats,
+since Orders/Payments don't exist yet - an inline Edit form, and
+Orders/Payments/Pickup & Delivery tabs as honest `EmptyState`s per
+`docs/design/PAGES.md` §8). New `services/customers.ts` (typed API
+calls), `types/customer.ts` (mirrors the backend entity by hand - no
+shared types package yet), and `components/customers/CustomerCard.tsx`
+(first real use of the `components/<domain>/` convention from PAGES.md).
+
+Split `Button`'s `cva` variants into `components/ui/button-variants.ts`
+so `<Link>`s can be styled identically to `<Button>` without nesting an
+interactive element inside another (invalid - there's no `asChild`
+pattern here) - same real fast-refresh warning oxlint caught on the
+auth-context split earlier, fixed the same way.
+
+**Depends on PR #19 (backend) being merged to actually work** - #19 is
+still open, so this could only be verified by build/lint/route-serving
+plus a careful contract cross-check against my own backend code (I
+wrote both sides, so I'm confident in the shapes), not a live
+end-to-end HTTP test like #19 itself got. Please do a real test once
+both are merged.
+
+Verified: `npm run build` and `npm run lint` pass, 0 problems (including
+the real fast-refresh fix above); served the production build and
+confirmed `/customers`, `/customers/new`, and `/customers/<id>` all
+return 200.
