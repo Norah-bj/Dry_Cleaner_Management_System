@@ -19,7 +19,7 @@ export function AppShell() {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen overflow-hidden bg-background">
       <aside
         className={cn(
           'hidden shrink-0 flex-col border-r border-border bg-surface transition-[width] md:flex',
