@@ -515,3 +515,22 @@ list, search, get-by-id, update, a validation failure (missing
 confirmed unauthenticated requests get 401. Deleted the test customer
 created during verification afterward. `npm run build`, `npm run
 lint`, `npm test` (14/14, 5 new) all pass.
+**Phase:** 1 — Foundation (Dashboard refresh, per PAGES.md §1)
+
+Reworked `DashboardPage` to match the detailed spec in
+`docs/design/PAGES.md` §1: a four-card business-overview row (Today's
+Orders/Revenue/Ready/Outstanding - new `components/ui/StatCard.tsx`),
+a compact clickable laundry-flow row (7 stages, links to `/laundry`),
+"Ready for collection" renamed to "Needs attention" with broader copy
+(ready/overdue/unpaid/express-due-today), header actions (+ Customer,
++ New Order - disabled with a tooltip, same pattern as every other
+page's create action), and a "Revenue this week" section. Pickups/
+deliveries columns unchanged.
+
+Every value is a genuine `0`, never a fabricated trend percentage -
+there's no historical data to compute a trend from, and DESIGN-
+SYSTEM.md/CLAUDE.md both rule out simulating functionality that
+doesn't exist yet.
+
+Verified: `npm run build` and `npm run lint` pass; served the
+production build on a separate port and confirmed `/` returns 200.
