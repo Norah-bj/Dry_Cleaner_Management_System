@@ -7,13 +7,19 @@
   current as endpoints change — updating Swagger decorators is part of the
   same change, not a follow-up.
 - Auth: `Authorization: Bearer <JWT>` on every protected endpoint.
-- **Implemented so far:** `POST /api/v1/auth/login` only (secure-by-default
+- **Implemented so far:** `POST /api/v1/auth/login` (secure-by-default
   global guard - every other endpoint requires a valid token unless
-  `@Public()`). `POST /api/v1/auth/refresh` below is the target shape, not
-  yet built - see `docs/KNOWN-ISSUES.md`. The custom exception filter and
-  response envelope below are the target shape too; until that
-  cross-cutting phase lands, errors use NestJS's default `HttpException`
-  format (`statusCode`/`message`/`error`, no `path`/`timestamp`).
+  `@Public()`), and `GET/POST /api/v1/customers` +
+  `GET/PATCH /api/v1/customers/:id` (the first real business module - read
+  is open to any authenticated user, create/update restricted via
+  `@Roles()`). `POST /api/v1/auth/refresh` below is still just the target
+  shape, not yet built - see `docs/KNOWN-ISSUES.md`. The list **response
+  envelope is real** (`{data, meta: {page, perPage, total}}`, see
+  `common/dto/pagination-query.dto.ts` / `common/types/paginated-result.ts`)
+  - but the custom **error** shape below is still the target only; until
+  the cross-cutting exception-filter phase lands, errors use NestJS's
+  default `HttpException` format (`statusCode`/`message`/`error`, no
+  `path`/`timestamp`).
 
 ## Resource naming
 
