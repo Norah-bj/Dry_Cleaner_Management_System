@@ -473,3 +473,25 @@ updated to cross-reference it. `README.md`'s Status and Setup sections
 were also badly stale (still said "Phase 0, no application code yet" /
 "not yet available") - corrected with the current status and real
 setup steps (env vars, migration, seed, both dev servers).
+
+## 2026-08-29 (cont'd, 8)
+
+**Phase:** 1 — Foundation (Dashboard refresh, per PAGES.md §1)
+
+Reworked `DashboardPage` to match the detailed spec in
+`docs/design/PAGES.md` §1: a four-card business-overview row (Today's
+Orders/Revenue/Ready/Outstanding - new `components/ui/StatCard.tsx`),
+a compact clickable laundry-flow row (7 stages, links to `/laundry`),
+"Ready for collection" renamed to "Needs attention" with broader copy
+(ready/overdue/unpaid/express-due-today), header actions (+ Customer,
++ New Order - disabled with a tooltip, same pattern as every other
+page's create action), and a "Revenue this week" section. Pickups/
+deliveries columns unchanged.
+
+Every value is a genuine `0`, never a fabricated trend percentage -
+there's no historical data to compute a trend from, and DESIGN-
+SYSTEM.md/CLAUDE.md both rule out simulating functionality that
+doesn't exist yet.
+
+Verified: `npm run build` and `npm run lint` pass; served the
+production build on a separate port and confirmed `/` returns 200.
