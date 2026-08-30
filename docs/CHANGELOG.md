@@ -508,3 +508,61 @@ Verified: `npm run build` and `npm run lint` pass, 0 problems (including
 the real fast-refresh fix above); served the production build and
 confirmed `/customers`, `/customers/new`, and `/customers/<id>` all
 return 200.
+**Phase:** 1 — Foundation (Customers backend — Sprint 3)
+
+First real business module: `modules/customers` (`Customer` entity,
+service, controller, DTOs). `POST/GET/PATCH /api/v1/customers` +
+`GET /api/v1/customers/:id`, list endpoint supports pagination and a
+`search` param matching name/phone/customer number
+(case-insensitive), following the response envelope
+(`{data, meta}`) documented in `docs/architecture/API.md` for the
+first time. New shared `common/dto/pagination-query.dto.ts` and
+`common/types/paginated-result.ts` for reuse by future list endpoints.
+
+`customer_number` (e.g. `C-00001`) is generated from a dedicated
+Postgres sequence created in the migration, so concurrent creates
+never collide. The `C-XXXXX` format is illustrative only (matches
+every mockup across `docs/design/`) - not a client-confirmed
+numbering scheme, and centralized in one place if it needs to change.
+
+RBAC: read is open to any authenticated user (e.g. laundry staff
+confirming whose order they're holding); create/update restricted to
+Super Admin/Manager/Receptionist/Cashier via `@Roles()` - the first
+real use of the `RolesGuard` wired since the auth phase. This split is
+a judgment call (not in `docs/design/PAGES.md`'s permission matrix,
+which doesn't list Customers explicitly), flagged in the PR.
+
+A real bug caught by actually running the migration (not just
+building): `alternativePhone`/`address`/`notes` typed `string | null`
+made TypeORM's reflection-based type inference fail
+(`DataTypeNotSupportedError: Data type "Object"... not supported`) -
+fixed by adding explicit `type: 'varchar'` to those columns.
+
+Verified for real, not just built: ran the migration against a real
+Postgres, booted the app (on a spare port, since the owner had her own
+instance running on 3000 - didn't touch it), logged in with the seeded
+admin account, and exercised every endpoint over HTTP - create,
+list, search, get-by-id, update, a validation failure (missing
+`name` → 400 with a clear message), a 404 for an unknown id, and
+confirmed unauthenticated requests get 401. Deleted the test customer
+created during verification afterward. `npm run build`, `npm run
+lint`, `npm test` (14/14, 5 new) all pass.
+**Phase:** 1 — Foundation (Dashboard refresh, per PAGES.md §1)
+
+Reworked `DashboardPage` to match the detailed spec in
+`docs/design/PAGES.md` §1: a four-card business-overview row (Today's
+Orders/Revenue/Ready/Outstanding - new `components/ui/StatCard.tsx`),
+a compact clickable laundry-flow row (7 stages, links to `/laundry`),
+"Ready for collection" renamed to "Needs attention" with broader copy
+(ready/overdue/unpaid/express-due-today), header actions (+ Customer,
++ New Order - disabled with a tooltip, same pattern as every other
+page's create action), and a "Revenue this week" section. Pickups/
+deliveries columns unchanged.
+
+Every value is a genuine `0`, never a fabricated trend percentage -
+there's no historical data to compute a trend from, and DESIGN-
+SYSTEM.md/CLAUDE.md both rule out simulating functionality that
+doesn't exist yet.
+
+Verified: `npm run build` and `npm run lint` pass; served the
+production build on a separate port and confirmed `/` returns 200.
