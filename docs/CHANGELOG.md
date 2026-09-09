@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-09-09
+
+**Phase:** 1 — Foundation / Interactive Mock UI (Orders & Laundry — Phase A1 & A2)
+
+Built the full frontend for Orders, New Order Intake, Order Details, and Laundry Kanban board using an interactive TypeScript mock store (`frontend/src/mock/mock-store.ts`) backed by `localStorage`:
+
+- `types/order.ts`: `Order`, `OrderItem`, `OrderMaterialItem`, `OrderStatusHistoryItem`, `LaundryStage`, `ServiceTier`, `PaymentStatus`, and catalog types.
+- `mock/mock-data.ts` & `mock/mock-store.ts`: Master catalogs (9 garment types, 4 packaging materials) and local reactive state store with event listeners.
+- `components/orders/StatusBadge.tsx`: Visual badge for all 9 laundry stages.
+- `components/orders/ServiceTierBadge.tsx`: Priority badge (`Standard`, `⚡ Express`, `🔥 Same Day`).
+- `components/orders/OrderTimeline.tsx`: "The Clean Journey" garment progress line.
+- `components/orders/OrderSlipModal.tsx`: Thermal paper receipt slip modal with storage IDs (`C-XXXXX`, `B-XXXXX`), pricing breakdown, ready date/time, QR code placeholder, and thermal print trigger.
+- `features/orders/OrdersPage.tsx`: Interactive order list with status filter chips (`All`, `Processing`, `Ready`, `Delivered`, `Unpaid`), search input, datatable, and row navigation.
+- `features/orders/NewOrderPage.tsx`: 5-step intake wizard (Customer $\rightarrow$ Garments $\rightarrow$ Priority $\rightarrow$ Materials $\rightarrow$ Payment & Slip modal).
+- `features/orders/OrderDetailsPage.tsx`: Control center (`/orders/:id`) featuring `OrderTimeline`, garments breakdown, storage identifiers, payment summary, payment modal, stage advancement controls, and activity log.
+- `features/laundry/LaundryPage.tsx`: Responsive 8-column Kanban board (`Received` $\rightarrow$ `Ready`) with live stage counters, priority tags, garment counts, due time indicators, and `[ Next Stage ]` action button.
+- `App.tsx`: Wired `/orders/new` and `/orders/:id` routes.
+
+Verified: `npm run build` and `npm run lint` (0 errors, 0 warnings) pass cleanly.
+
 ## 2026-08-26
 
 **Phase:** 0 — Discovery
