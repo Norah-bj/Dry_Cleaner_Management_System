@@ -10,6 +10,8 @@ import { PickupDeliveryPage } from './features/pickups/PickupDeliveryPage'
 import { CustomersPage } from './features/customers/CustomersPage'
 import { NewCustomerPage } from './features/customers/NewCustomerPage'
 import { CustomerProfilePage } from './features/customers/CustomerProfilePage'
+import { NewOrderPage } from './features/orders/NewOrderPage'
+import { OrderDetailsPage } from './features/orders/OrderDetailsPage'
 import { PaymentsPage } from './features/payments/PaymentsPage'
 import { InventoryPage } from './features/inventory/InventoryPage'
 import { EmployeesPage } from './features/employees/EmployeesPage'
@@ -49,6 +51,8 @@ function App() {
               />
             );
           })}
+          <Route path="orders/new" element={<NewOrderPage />} />
+          <Route path="orders/:id" element={<OrderDetailsPage />} />
           <Route path="customers/new" element={<NewCustomerPage />} />
           <Route path="customers/:id" element={<CustomerProfilePage />} />
           <Route path="more" element={<MoreMenu />} />
