@@ -17,6 +17,7 @@ import { InventoryPage } from './features/inventory/InventoryPage'
 import { EmployeesPage } from './features/employees/EmployeesPage'
 import { ReportsPage } from './features/reports/ReportsPage'
 import { SettingsPage } from './features/settings/SettingsPage'
+import { DriverMobileView } from './features/driver/DriverMobileView'
 import { allNavItems } from './layouts/nav-config'
 
 /** Every nav destination now has a real page - see docs/design/DESIGN-SYSTEM.md's priority order. */
@@ -37,6 +38,8 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* Driver mobile view — no sidebar, no auth guard; accessed via shared link */}
+      <Route path="/driver/:driverId" element={<DriverMobileView />} />
 
       <Route element={<RequireAuth />}>
         <Route element={<AppShell />}>
