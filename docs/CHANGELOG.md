@@ -1,6 +1,47 @@
 # Changelog
 
-## 2026-09-09
+## 2026-09-09 (Phase A3 & A4 — Payments + Pickups & Deliveries)
+
+**Phase:** 1 — Interactive Mock UI (Payments — Phase A3)
+
+Built the Payments UI driven by `mock-store.ts` — no backend required yet:
+
+- `features/payments/PaymentsPage.tsx`: Three-tab page (`Overview`, `Transactions`, `Outstanding`).
+  - **Overview**: Method-breakdown card (Cash / Mobile Money / Bank Transfer / Card) for today's collection, plus recent transactions preview list.
+  - **Transactions**: Searchable full-history table (receipt #, customer, order, method, amount, date, received by); click any row to navigate to the order.
+  - **Outstanding**: Alert banner with total owed, sortable table of unpaid orders with `Pay Now` shortcut back to `OrderDetailsPage`.
+  - Four summary stat cards: Today's Collection, Total Collected, Total Outstanding, Cash Today / MoMo breakdown.
+- All data derived live from `mockStore.getOrders()` — payments recorded via the Order Details payment modal automatically surface here.
+
+Verified: `npm.cmd run build` and `npm.cmd run lint` pass. (Vite reports a non-blocking bundle-size advisory.)
+
+---
+
+**Phase:** 1 — Interactive Mock UI (Pickups & Deliveries + Driver Mobile Web — Phase A4)
+
+Built the Pickup & Delivery UI with a driver-facing mobile view:
+
+- `types/pickup-delivery.ts`: `PickupRequest`, `DeliveryRequest`, `Driver`, `PickupStatus` (6 states), `DeliveryStatus` (6 states).
+- `mock/mock-pickup-delivery.ts`: 3 sample drivers, 3 pickup requests (today + tomorrow), 3 delivery requests (today + tomorrow) with realistic Nyamata/Bugesera addresses and `amountCollectable` amounts.
+- `mock/mock-pickup-delivery-store.ts`: Reactive `localStorage`-backed store (same subscription model as `mock-store.ts`) with `getPickups`, `getTodayPickups`, `updatePickupStatus` (with optional driver assignment), `createPickup`, `getDeliveries`, `getTodayDeliveries`, `updateDeliveryStatus`, and `resetToDefaults`.
+- `components/pickups/RunBadge.tsx`: Status badge for both pickup and delivery statuses with colour-coded variants.
+- `features/pickups/PickupDeliveryPage.tsx`: Three-tab page (`Pickups`, `Deliveries`, `Drivers`).
+  - **Pickups**: Cards grouped by date (Today/Tomorrow/etc.), each showing address, phone, time window, driver name, notes, and an inline action to advance status (`Mark as Scheduled → Driver Assigned → On the Way → Picked Up`) or cancel. Driver assignment rendered as a `<select>` filtered to available drivers.
+  - **Deliveries**: Same card pattern with `amountCollectable` badge (red, prominent), status advance chain (`Scheduled → Driver Assigned → Out for Delivery → Delivered`), and failed/cancel actions.
+  - **Drivers**: Driver roster cards showing active pickup/delivery counts and an "Open Driver View" link.
+  - Summary strip: Today's Pickup count, Today's Delivery count, Total to Collect (RWF), Available Drivers.
+- `features/driver/DriverMobileView.tsx`: Standalone mobile-first page at `/driver/:driverId` — **no sidebar, no auth guard** (accessed via a shared link sent to the driver).
+  - Reads `driverId` from the URL path.
+  - Header with driver initials avatar + stats strip (active pickups / deliveries / done today).
+  - Touch-optimised cards with large action buttons: "I'm On the Way" → "Picked Up ✓" for pickups; "Out for Delivery" → "Delivered ✓" for deliveries.
+  - Prominent `amountCollectable` collect-on-delivery banner.
+  - Tappable `tel:` links for one-touch calling.
+  - Empty state when all runs are complete.
+- `App.tsx`: Added `/driver/:driverId` route outside the `RequireAuth`/`AppShell` wrapper.
+
+Verified: `npm.cmd run build` and `npm.cmd run lint` pass. (Vite reports a non-blocking bundle-size advisory.)
+
+## 2026-09-09 (Phase A1 & A2)
 
 **Phase:** 1 — Foundation / Interactive Mock UI (Orders & Laundry — Phase A1 & A2)
 
