@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-09-14 (Stage B — Backend Modules: Orders, Laundry, Payments, Logistics)
+
+**Phase:** 1 — Backend Modular Monolith (Orders, Laundry, Payments, Logistics — Stage B)
+
+Built full NestJS backend domain modules, entities, services, controllers, DTOs, TypeORM migrations, and unit test suites:
+
+- **Orders Module (`modules/orders`)**:
+  - `entities/`: `Order` (`orders` table), `OrderItem` (`order_items`), `OrderMaterial` (`order_materials`), `OrderStatusHistory` (`order_status_history`), decoupled `order-enums.ts`.
+  - `orders.service.ts`: Auto-number sequence generator (`ORD-YYYY-XXXXX`), pricing and material calculation engine, initial status history auditing, multi-filter query builder with customer/order search, and stage transition engine.
+  - `orders.controller.ts`: Secured REST endpoints (`POST /api/v1/orders`, `GET /api/v1/orders`, `GET /api/v1/orders/:id`, `PATCH /api/v1/orders/:id`, `PATCH /api/v1/orders/:id/status`) and public customer tracking (`GET /api/v1/orders/track/:orderNumber`).
+
+- **Laundry Module (`modules/laundry`)**:
+  - `laundry.service.ts`: Active stage grouping across the 8 Kanban stages (`RECEIVED` $\rightarrow$ `READY`), prioritizing `SAME_DAY` and `EXPRESS` tiers.
+  - `laundry.controller.ts`: `GET /api/v1/laundry/board` (Kanban data feed) and `GET /api/v1/laundry/metrics` (stage distribution counts).
+
+- **Payments Module (`modules/payments`)**:
+  - `entities/`: `Payment` (`payments` table), `Invoice` (`invoices` table).
+  - `payments.service.ts`: Atomic transaction-wrapped payment recording with pessimistic row locking on Order, automatic balance and `paymentStatus` resolution (`PAID`, `PARTIALLY_PAID`, `UNPAID`), receipt generation (`RCP-YYYY-XXXXX`), invoice generation upon full settlement, and summary calculation.
+  - `payments.controller.ts`: `POST /api/v1/orders/:orderId/payments`, `GET /api/v1/payments`, `GET /api/v1/payments/summary`, `GET /api/v1/orders/:orderId/payments`.
+
+- **Logistics Module (`modules/logistics`)**:
+  - `entities/`: `PickupRequest` (`pickup_requests` table), `DeliveryRequest` (`delivery_requests` table).
+  - `logistics.service.ts`: Pickup scheduling with auto-numbering (`PKP-YYYY-XXXXX`), delivery scheduling with auto-numbering (`DLV-YYYY-XXXXX`) linked to order balance, and driver task feed aggregator.
+  - Controllers: `PickupsController` (`/api/v1/pickups`), `DeliveriesController` (`/api/v1/deliveries`), `DriversController` (`/api/v1/drivers/:driverId/tasks` public for driver mobile view).
+
+- **Database Migration**:
+  - `1757500000000-CreateOrdersLaundryPaymentsLogistics.ts`: Migration creating all 8 tables, 8 enums, and 5 ID sequences.
+
+- **App Integration**:
+  - Wired `OrdersModule`, `LaundryModule`, `PaymentsModule`, and `LogisticsModule` into `app.module.ts`.
+
+- **Tests & Verification**:
+  - 4 comprehensive unit test suites covering order creation/calculations, stage transitions, Kanban grouping, payment balance recalculation, and pickup/delivery driver feeds.
+  - `npm test`: 7/7 test suites passed, 27/27 tests passed.
+  - `npm run build`: built cleanly with zero errors.
+
+---
+
 ## 2026-09-14 (Phase A5–A9 — Inventory, Employees, Reports, Settings, Customer Mobile)
 
 **Phase:** 1 — Interactive Mock UI (Inventory, Employees, Reports, Settings, Customer Mobile — Phases A5–A9)

@@ -7,19 +7,15 @@
   current as endpoints change — updating Swagger decorators is part of the
   same change, not a follow-up.
 - Auth: `Authorization: Bearer <JWT>` on every protected endpoint.
-- **Implemented so far:** `POST /api/v1/auth/login` (secure-by-default
-  global guard - every other endpoint requires a valid token unless
-  `@Public()`), and `GET/POST /api/v1/customers` +
-  `GET/PATCH /api/v1/customers/:id` (the first real business module - read
-  is open to any authenticated user, create/update restricted via
-  `@Roles()`). `POST /api/v1/auth/refresh` below is still just the target
-  shape, not yet built - see `docs/KNOWN-ISSUES.md`. The list **response
-  envelope is real** (`{data, meta: {page, perPage, total}}`, see
-  `common/dto/pagination-query.dto.ts` / `common/types/paginated-result.ts`)
-  - but the custom **error** shape below is still the target only; until
-  the cross-cutting exception-filter phase lands, errors use NestJS's
-  default `HttpException` format (`statusCode`/`message`/`error`, no
-  `path`/`timestamp`).
+- **Implemented so far:**
+  - `POST /api/v1/auth/login` (Auth)
+  - `GET/POST /api/v1/customers`, `GET/PATCH /api/v1/customers/:id` (Customers)
+  - `POST /api/v1/orders`, `GET /api/v1/orders`, `GET /api/v1/orders/:id`, `PATCH /api/v1/orders/:id`, `PATCH /api/v1/orders/:id/status`, `GET /api/v1/orders/track/:orderNumber` (Orders & Intake)
+  - `GET /api/v1/laundry/board`, `GET /api/v1/laundry/metrics` (Laundry Kanban & Metrics)
+  - `POST /api/v1/orders/:orderId/payments`, `GET /api/v1/payments`, `GET /api/v1/payments/summary`, `GET /api/v1/orders/:orderId/payments` (Payments & Invoices)
+  - `GET/POST /api/v1/pickups`, `GET/PATCH /api/v1/pickups/:id` (Pickups)
+  - `GET/POST /api/v1/deliveries`, `GET/PATCH /api/v1/deliveries/:id` (Deliveries)
+  - `GET /api/v1/drivers/:driverId/tasks` (Driver Mobile Feed)
 
 ## Resource naming
 
