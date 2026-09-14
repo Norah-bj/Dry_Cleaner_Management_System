@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-09-14 (Phase A5–A9 — Inventory, Employees, Reports, Settings, Customer Mobile)
+
+**Phase:** 1 — Interactive Mock UI (Inventory, Employees, Reports, Settings, Customer Mobile — Phases A5–A9)
+
+Built complete UI pages and reactive mock stores for all remaining Phase 1 modules:
+
+- **Inventory (Phase A5)**:
+  - `types/inventory.ts`: `InventoryItem`, `StockPurchase`, `Employee`, `InventoryCategory`, `StockStatus`.
+  - `mock/mock-inventory.ts`: Mock initial catalogs for detergent, softener, hangers, plastic covers, packaging, machine supplies, and employee rosters.
+  - `mock/mock-inventory-store.ts`: Reactive localStorage store with `getItems`, `getItemById`, `updateQuantity`, `recordPurchase`, `getEmployees`, and `toggleEmployeeStatus`.
+  - `features/inventory/InventoryPage.tsx`: Tabbed view (`All Items`, `Low Stock Alert`, `Purchase History`), category filters, real-time stock status badges, search, and a working "Restock / Add Purchase" modal linked to the reactive store.
+
+- **Employees (Phase A6)**:
+  - `features/employees/EmployeesPage.tsx`: Staff roster organized by roles (Cleaner, Ironer, Driver, Cashier, Manager), status pill badges, active order assignments, and toggleable active/on-leave actions with full mock store sync.
+
+- **Reports & Analytics (Phase A7)**:
+  - `features/reports/ReportsPage.tsx`: Computed financial and operational metrics derived live from `mockStore` and `inventoryStore` (Today's revenue, Month-to-date collections, Service tier volume breakdown, Laundry processing stage distribution, and Inventory valuation).
+
+- **Settings (Phase A8)**:
+  - `features/settings/SettingsPage.tsx`: Configurable business details (EBENEZER Dry Cleaner, Nyamata branch, TIN, phone, operating hours) and editable service pricing grid (Standard, Express, Same Day RWF tariffs per garment) with persistence.
+
+- **Customer Mobile Web (Phase A9)**:
+  - `features/customer/CustomerMobilePage.tsx`: Public mobile-first view at `/customer` — no auth required. Real-time order tracker by order number (syncs with `mockStore`), interactive pickup request submission, price estimator, and direct WhatsApp / phone contact shortcuts.
+  - `App.tsx`: Registered `/customer` public route alongside `/driver/:driverId`.
+
+Verified: `npm run lint` (0 errors, 0 warnings) and `npm run build` pass cleanly.
+
+---
+
 ## 2026-09-09 (Phase A3 & A4 — Payments + Pickups & Deliveries)
 
 **Phase:** 1 — Interactive Mock UI (Payments — Phase A3)
