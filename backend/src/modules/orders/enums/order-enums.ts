@@ -1,0 +1,24 @@
+export enum ServiceTier {
+  STANDARD = 'STANDARD',
+  EXPRESS = 'EXPRESS',
+  SAME_DAY = 'SAME_DAY',
+}
+
+export enum OrderStatus {
+  RECEIVED = 'RECEIVED',
+  SORTING = 'SORTING',
+  WASHING = 'WASHING',
+  DRYING = 'DRYING',
+  IRONING = 'IRONING',
+  QUALITY_CHECK = 'QUALITY_CHECK',
+  PACKING = 'PACKING',
+  READY = 'READY',
+  DELIVERED = 'DELIVERED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum PaymentStatus {
+  UNPAID = 'UNPAID',
+  PARTIALLY_PAID = 'PARTIALLY_PAID',
+  PAID = 'PAID',
+}
