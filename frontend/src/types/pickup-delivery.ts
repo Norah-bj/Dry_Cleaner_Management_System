@@ -19,6 +19,8 @@ export interface Driver {
   name: string;
   phone: string;
   isAvailable: boolean;
+  vehicleType?: string;
+  plateNumber?: string;
 }
 
 export interface PickupRequest {

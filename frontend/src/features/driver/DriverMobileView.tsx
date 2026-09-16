@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, MapPin, Package, Phone, Truck, XCircle } from 'lucide-react';
+import { CheckCircle, MapPin, Package, Phone, Truck, RefreshCw } from 'lucide-react';
 import { pickupDeliveryStore } from '../../mock/mock-pickup-delivery-store';
 import { RunBadge } from '../../components/pickups/RunBadge';
+import { getDriverTasks, updatePickup, updateDelivery, type ApiPickup, type ApiDelivery } from '../../services/logistics';
 
 /**
  * Driver Mobile Web — lightweight page opened by drivers on their phone.
@@ -9,46 +10,128 @@ import { RunBadge } from '../../components/pickups/RunBadge';
  * Intentionally minimal: large touch targets, no sidebar, status-advance only.
  */
 export function DriverMobileView() {
-  // Read driverId from URL path: /driver/<id>
   const driverId = window.location.pathname.split('/').pop() ?? '';
-  const [, setTick] = useState(0);
-  const refresh = useCallback(() => setTick((n) => n + 1), []);
+  const [driverName, setDriverName] = useState('Driver');
+  const [pickups, setPickups] = useState<ApiPickup[]>([]);
+  const [deliveries, setDeliveries] = useState<ApiDelivery[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => { const unsub = pickupDeliveryStore.subscribe(refresh); return () => { unsub(); }; }, [refresh]);
+  const fetchTasks = useCallback(async () => {
+    if (!driverId) return;
+    setLoading(true);
+    try {
+      const res = await getDriverTasks(driverId);
+      if (res) {
+        setPickups(res.pickups || []);
+        setDeliveries(res.deliveries || []);
+        if (res.pickups?.[0]?.assignedDriverName) {
+          setDriverName(res.pickups[0].assignedDriverName);
+        } else if (res.deliveries?.[0]?.assignedDriverName) {
+          setDriverName(res.deliveries[0].assignedDriverName);
+        }
+      }
+    } catch {
+      // Mock store fallback
+      const allP = pickupDeliveryStore.getPickups().filter((p) => p.driverId === driverId);
+      const allD = pickupDeliveryStore.getDeliveries().filter((d) => d.driverId === driverId);
+      setPickups(
+        allP.map((p) => ({
+          id: p.id,
+          pickupNumber: p.requestNumber,
+          customerId: p.customerId,
+          customer: { id: p.customerId, name: p.customerName, phone: p.customerPhone, address: p.address },
+          pickupAddress: p.address,
+          scheduledDate: p.preferredDate,
+          timeSlot: `${p.preferredTimeFrom} - ${p.preferredTimeTo}`,
+          status: p.status as any,
+          assignedDriverId: p.driverId,
+          assignedDriverName: p.driverName,
+          notes: p.notes,
+          createdAt: p.createdAt,
+        })),
+      );
+      setDeliveries(
+        allD.map((d) => ({
+          id: d.id,
+          deliveryNumber: d.requestNumber,
+          orderId: d.orderId,
+          order: { id: d.orderId, orderNumber: d.orderNumber, customer: { name: d.customerName, phone: d.customerPhone } },
+          deliveryAddress: d.address,
+          scheduledDate: d.scheduledDate,
+          timeSlot: `${d.scheduledTimeFrom} - ${d.scheduledTimeTo}`,
+          amountCollectable: d.amountCollectable,
+          status: d.status as any,
+          assignedDriverId: d.driverId,
+          assignedDriverName: d.driverName,
+          notes: d.notes,
+          createdAt: d.createdAt,
+        })),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [driverId]);
 
-  const driver = pickupDeliveryStore.getDrivers().find((d) => d.id === driverId);
-  const allPickups = pickupDeliveryStore.getPickups().filter((p) => p.driverId === driverId);
-  const allDeliveries = pickupDeliveryStore.getDeliveries().filter((d) => d.driverId === driverId);
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
 
-  const activePickups = allPickups.filter((p) => !['PICKED_UP', 'CANCELLED'].includes(p.status));
-  const activeDeliveries = allDeliveries.filter((d) => !['DELIVERED', 'CANCELLED', 'FAILED'].includes(d.status));
+  const activePickups = pickups.filter((p) => !['PICKED_UP', 'CANCELLED'].includes(p.status));
+  const activeDeliveries = deliveries.filter((d) => !['DELIVERED', 'CANCELLED', 'FAILED'].includes(d.status));
   const doneToday = [
-    ...allPickups.filter((p) => p.status === 'PICKED_UP'),
-    ...allDeliveries.filter((d) => d.status === 'DELIVERED'),
+    ...pickups.filter((p) => p.status === 'PICKED_UP'),
+    ...deliveries.filter((d) => d.status === 'DELIVERED'),
   ].length;
 
-  if (!driver) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-center">
-        <Truck className="mb-4 h-12 w-12 text-text-muted" />
-        <h1 className="text-lg font-bold text-text">Driver not found</h1>
-        <p className="mt-2 text-sm text-text-muted">Check the link sent to you by the shop.</p>
-      </div>
-    );
-  }
+  const handleAdvancePickup = async (pickupId: string, currentStatus: string) => {
+    let next = 'ON_THE_WAY';
+    if (currentStatus === 'ON_THE_WAY' || currentStatus === 'DRIVER_ASSIGNED' || currentStatus === 'SCHEDULED') {
+      next = currentStatus === 'ON_THE_WAY' ? 'PICKED_UP' : 'ON_THE_WAY';
+    }
+    try {
+      await updatePickup(pickupId, { status: next });
+      await fetchTasks();
+    } catch {
+      pickupDeliveryStore.updatePickupStatus(pickupId, next as any);
+      fetchTasks();
+    }
+  };
+
+  const handleAdvanceDelivery = async (deliveryId: string, currentStatus: string) => {
+    let next = 'OUT_FOR_DELIVERY';
+    if (currentStatus === 'OUT_FOR_DELIVERY' || currentStatus === 'DRIVER_ASSIGNED' || currentStatus === 'SCHEDULED') {
+      next = currentStatus === 'OUT_FOR_DELIVERY' ? 'DELIVERED' : 'OUT_FOR_DELIVERY';
+    }
+    try {
+      await updateDelivery(deliveryId, { status: next });
+      await fetchTasks();
+    } catch {
+      pickupDeliveryStore.updateDeliveryStatus(deliveryId, next as any);
+      fetchTasks();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
       <div className="bg-primary px-4 pt-safe-top pb-4 text-white">
-        <div className="flex items-center gap-3 pt-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-lg font-bold">
-            {driver.name.split(' ').map((n) => n[0]).join('')}
+        <div className="flex items-center justify-between pt-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-lg font-bold">
+              {driverName.slice(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <div className="text-xs opacity-75">Driver Task Portal — EBENEZER</div>
+              <div className="font-bold text-base">{driverName}</div>
+            </div>
           </div>
-          <div>
-            <div className="text-xs opacity-75">Driver View — EBENEZER</div>
-            <div className="font-bold text-base">{driver.name}</div>
-          </div>
+          <button
+            onClick={() => fetchTasks()}
+            disabled={loading}
+            className="rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
         {/* Quick stats */}
@@ -73,74 +156,54 @@ export function DriverMobileView() {
         {activePickups.length > 0 && (
           <section>
             <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-text uppercase tracking-wider">
-              <Package className="h-4 w-4 text-primary" /> Pickups
+              <Package className="h-4 w-4 text-primary" /> Pickups ({activePickups.length})
             </h2>
             <div className="space-y-3">
               {activePickups.map((p) => (
                 <div key={p.id} className="rounded-xl border border-border bg-surface p-4 shadow-sm space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-sm font-bold text-primary">{p.requestNumber}</span>
-                    <RunBadge status={p.status} type="pickup" />
+                    <span className="font-mono text-sm font-bold text-primary">{p.pickupNumber}</span>
+                    <RunBadge status={p.status as any} type="pickup" />
                   </div>
 
-                  <div className="text-base font-semibold text-text">{p.customerName}</div>
+                  <div className="text-base font-semibold text-text">{p.customer?.name || 'Customer'}</div>
 
                   <div className="space-y-1.5 text-sm text-text-muted">
                     <div className="flex items-start gap-2">
                       <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      <span>{p.address}</span>
+                      <span>{p.pickupAddress}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 shrink-0" />
-                      <a href={`tel:${p.customerPhone}`} className="text-primary font-medium">
-                        {p.customerPhone}
-                      </a>
-                    </div>
+                    {p.customer?.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 shrink-0" />
+                        <a href={`tel:${p.customer.phone}`} className="text-primary font-medium">
+                          {p.customer.phone}
+                        </a>
+                      </div>
+                    )}
                   </div>
 
                   {p.notes && (
-                    <div className="rounded bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
-                      📝 {p.notes}
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 p-2 text-xs text-amber-800">
+                      {p.notes}
                     </div>
                   )}
 
-                  <div className="text-xs text-text-muted">
-                    ⏰ {p.preferredTimeFrom} – {p.preferredTimeTo}
-                  </div>
-
-                  {/* Action buttons */}
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    {p.status === 'DRIVER_ASSIGNED' && (
-                      <button
-                        type="button"
-                        className="col-span-2 flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white active:scale-95 transition-transform"
-                        onClick={() => { pickupDeliveryStore.updatePickupStatus(p.id, 'ON_THE_WAY'); refresh(); }}
-                      >
-                        <Truck className="h-4 w-4" /> I'm On the Way
-                      </button>
-                    )}
-                    {p.status === 'ON_THE_WAY' && (
-                      <button
-                        type="button"
-                        className="col-span-2 flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-bold text-white active:scale-95 transition-transform"
-                        onClick={() => { pickupDeliveryStore.updatePickupStatus(p.id, 'PICKED_UP'); refresh(); }}
-                      >
-                        <CheckCircle className="h-4 w-4" /> Picked Up ✓
-                      </button>
-                    )}
+                  <div className="pt-1">
                     <button
-                      type="button"
-                      className="flex items-center justify-center gap-1 rounded-lg border border-rose-300 px-3 py-2 text-sm font-medium text-rose-600 active:bg-rose-50 transition-colors"
-                      onClick={() => { pickupDeliveryStore.updatePickupStatus(p.id, 'CANCELLED'); refresh(); }}
+                      onClick={() => handleAdvancePickup(p.id, p.status)}
+                      className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-white shadow hover:bg-primary-dark active:scale-98 transition-all flex items-center justify-center gap-2"
                     >
-                      <XCircle className="h-4 w-4" /> Cancel
+                      {p.status === 'ON_THE_WAY' ? (
+                        <>
+                          <CheckCircle className="h-4 w-4" /> Mark as Picked Up ✓
+                        </>
+                      ) : (
+                        <>
+                          <Truck className="h-4 w-4" /> I'm On The Way $\rightarrow$
+                        </>
+                      )}
                     </button>
-                    <a
-                      href={`tel:${p.customerPhone}`}
-                      className="flex items-center justify-center gap-1 rounded-lg border border-border px-3 py-2 text-sm font-medium text-text"
-                    >
-                      <Phone className="h-4 w-4" /> Call
-                    </a>
                   </div>
                 </div>
               ))}
@@ -152,83 +215,57 @@ export function DriverMobileView() {
         {activeDeliveries.length > 0 && (
           <section>
             <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-text uppercase tracking-wider">
-              <Truck className="h-4 w-4 text-primary" /> Deliveries
+              <Truck className="h-4 w-4 text-emerald-600" /> Deliveries ({activeDeliveries.length})
             </h2>
             <div className="space-y-3">
               {activeDeliveries.map((d) => (
                 <div key={d.id} className="rounded-xl border border-border bg-surface p-4 shadow-sm space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-sm font-bold text-primary">{d.requestNumber}</span>
-                    <RunBadge status={d.status} type="delivery" />
+                    <span className="font-mono text-sm font-bold text-primary">{d.deliveryNumber}</span>
+                    <RunBadge status={d.status as any} type="delivery" />
                   </div>
 
-                  <div className="text-base font-semibold text-text">{d.customerName}</div>
-                  <div className="font-mono text-xs text-text-muted">{d.orderNumber}</div>
+                  <div className="text-base font-semibold text-text">{d.order?.customer?.name || 'Customer'}</div>
 
                   <div className="space-y-1.5 text-sm text-text-muted">
                     <div className="flex items-start gap-2">
                       <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      <span>{d.address}</span>
+                      <span>{d.deliveryAddress}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 shrink-0" />
-                      <a href={`tel:${d.customerPhone}`} className="text-primary font-medium">
-                        {d.customerPhone}
-                      </a>
-                    </div>
+                    {d.order?.customer?.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 shrink-0" />
+                        <a href={`tel:${d.order.customer.phone}`} className="text-primary font-medium">
+                          {d.order.customer.phone}
+                        </a>
+                      </div>
+                    )}
                   </div>
 
-                  {d.amountCollectable > 0 && (
-                    <div className="flex items-center justify-between rounded-lg bg-rose-50 border border-rose-200 px-3 py-2">
-                      <span className="text-sm font-semibold text-rose-800">💰 Collect on delivery</span>
-                      <span className="font-mono font-bold text-rose-700 text-base">
-                        {d.amountCollectable.toLocaleString()} RWF
+                  {Number(d.amountCollectable) > 0 && (
+                    <div className="rounded-lg bg-rose-50 border border-rose-200 p-2.5 text-xs text-rose-800 font-semibold flex justify-between items-center">
+                      <span>Collect Cash / MoMo on Delivery:</span>
+                      <span className="font-mono text-sm font-bold text-rose-700">
+                        {Number(d.amountCollectable).toLocaleString()} RWF
                       </span>
                     </div>
                   )}
 
-                  {d.notes && (
-                    <div className="rounded bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
-                      📝 {d.notes}
-                    </div>
-                  )}
-
-                  <div className="text-xs text-text-muted">
-                    ⏰ {d.scheduledTimeFrom} – {d.scheduledTimeTo}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    {d.status === 'DRIVER_ASSIGNED' && (
-                      <button
-                        type="button"
-                        className="col-span-2 flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white active:scale-95 transition-transform"
-                        onClick={() => { pickupDeliveryStore.updateDeliveryStatus(d.id, 'OUT_FOR_DELIVERY'); refresh(); }}
-                      >
-                        <Truck className="h-4 w-4" /> Out for Delivery
-                      </button>
-                    )}
-                    {d.status === 'OUT_FOR_DELIVERY' && (
-                      <button
-                        type="button"
-                        className="col-span-2 flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-bold text-white active:scale-95 transition-transform"
-                        onClick={() => { pickupDeliveryStore.updateDeliveryStatus(d.id, 'DELIVERED'); refresh(); }}
-                      >
-                        <CheckCircle className="h-4 w-4" /> Delivered ✓
-                      </button>
-                    )}
+                  <div className="pt-1">
                     <button
-                      type="button"
-                      className="flex items-center justify-center gap-1 rounded-lg border border-rose-300 px-3 py-2 text-sm font-medium text-rose-600"
-                      onClick={() => { pickupDeliveryStore.updateDeliveryStatus(d.id, 'FAILED'); refresh(); }}
+                      onClick={() => handleAdvanceDelivery(d.id, d.status)}
+                      className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white shadow hover:bg-emerald-700 active:scale-98 transition-all flex items-center justify-center gap-2"
                     >
-                      <XCircle className="h-4 w-4" /> Failed
+                      {d.status === 'OUT_FOR_DELIVERY' ? (
+                        <>
+                          <CheckCircle className="h-4 w-4" /> Delivered & Collected ✓
+                        </>
+                      ) : (
+                        <>
+                          <Truck className="h-4 w-4" /> Out for Delivery $\rightarrow$
+                        </>
+                      )}
                     </button>
-                    <a
-                      href={`tel:${d.customerPhone}`}
-                      className="flex items-center justify-center gap-1 rounded-lg border border-border px-3 py-2 text-sm font-medium text-text"
-                    >
-                      <Phone className="h-4 w-4" /> Call
-                    </a>
                   </div>
                 </div>
               ))}
@@ -236,16 +273,13 @@ export function DriverMobileView() {
           </section>
         )}
 
-        {/* ── Empty state ── */}
+        {/* Empty State */}
         {activePickups.length === 0 && activeDeliveries.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <CheckCircle className="mb-4 h-14 w-14 text-emerald-500" />
-            <h2 className="text-lg font-bold text-text">All done!</h2>
-            <p className="mt-2 text-sm text-text-muted">
-              No active runs assigned to you right now.
-            </p>
-            <p className="mt-1 text-sm text-text-muted">
-              {doneToday > 0 ? `You completed ${doneToday} run${doneToday > 1 ? 's' : ''} today. Great work! 🎉` : ''}
+          <div className="rounded-2xl border border-dashed border-border p-8 text-center space-y-3">
+            <CheckCircle className="mx-auto h-12 w-12 text-emerald-500" />
+            <h3 className="font-bold text-base text-text">All runs completed!</h3>
+            <p className="text-xs text-text-muted">
+              You have no pending pickups or deliveries assigned right now. Great job!
             </p>
           </div>
         )}

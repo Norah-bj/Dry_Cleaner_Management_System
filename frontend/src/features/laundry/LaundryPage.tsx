@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Tag } from 'lucide-react';
+import { ArrowRight, Tag, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { ServiceTierBadge } from '../../components/orders/ServiceTierBadge';
 import { mockStore } from '../../mock/mock-store';
-import type { LaundryStage, Order } from '../../types/order';
+import { getLaundryBoard } from '../../services/laundry';
+import { updateOrderStatus, type ApiOrder } from '../../services/orders';
+import type { LaundryStage, Order, ServiceTier } from '../../types/order';
 
 const STAGES: Array<{ key: LaundryStage; label: string; description: string }> = [
   { key: 'RECEIVED', label: 'Received', description: 'Intake at reception' },
@@ -18,22 +20,93 @@ const STAGES: Array<{ key: LaundryStage; label: string; description: string }> =
   { key: 'READY', label: 'Ready', description: 'Awaiting pickup/delivery' },
 ];
 
+function mapApiOrderToOrder(api: ApiOrder): Order {
+  const currentStage = (api.status === 'CANCELLED' ? 'RECEIVED' : api.status) as LaundryStage;
+  const serviceTier = (api.serviceTier === 'STANDARD' ? 'NORMAL' : api.serviceTier) as ServiceTier;
+
+  return {
+    id: api.id,
+    orderNumber: api.orderNumber,
+    customerId: api.customerId,
+    customerName: api.customer?.name ?? 'Customer',
+    customerPhone: api.customer?.phone ?? '',
+    customerAddress: api.customer?.address,
+    serviceTier,
+    currentStage,
+    expectedCompletion: api.expectedCompletion ?? new Date().toISOString(),
+    coverCode: api.storageHangerId,
+    bagCode: api.storageBoxId,
+    hangersCount: 0,
+    envelopesCount: 0,
+    items: (api.items ?? []).map((it, idx) => ({
+      id: it.id ?? `item-${idx}`,
+      garmentName: it.garmentName,
+      quantity: it.quantity,
+      unitPrice: Number(it.unitPrice),
+      totalPrice: Number(it.lineTotal ?? it.quantity * it.unitPrice),
+    })),
+    materials: [],
+    subtotal: Number(api.subtotal),
+    materialCharges: Number(api.materialCharges),
+    priorityFee: 0,
+    discount: Number(api.discount),
+    totalAmount: Number(api.total),
+    amountPaid: Number(api.amountPaid),
+    balanceDue: Number(api.balance),
+    paymentStatus: api.paymentStatus === 'PAID' ? 'PAID' : api.paymentStatus === 'PARTIALLY_PAID' ? 'PARTIAL' : 'UNPAID',
+    statusHistory: [],
+    payments: [],
+    createdAt: api.createdAt,
+    updatedAt: api.updatedAt,
+  };
+}
+
 export function LaundryPage() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>(() => mockStore.getOrders());
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    return mockStore.subscribe(() => {
+  const fetchBoard = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getLaundryBoard();
+      if (data && data.columns) {
+        const flattened: Order[] = [];
+        for (const stage of Object.keys(data.columns)) {
+          const stageList = data.columns[stage] || [];
+          flattened.push(...stageList.map(mapApiOrderToOrder));
+        }
+        setOrders(flattened);
+      }
+    } catch {
       setOrders(mockStore.getOrders());
-    });
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const handleAdvance = (orderId: string, currentStage: LaundryStage) => {
+  useEffect(() => {
+    fetchBoard();
+    return mockStore.subscribe(() => {
+      // Mock store subscription listener
+    });
+  }, [fetchBoard]);
+
+  const handleAdvance = async (orderId: string, currentStage: LaundryStage) => {
     const stageKeys = STAGES.map((s) => s.key);
     const idx = stageKeys.indexOf(currentStage);
     if (idx < stageKeys.length - 1) {
       const nextStage = stageKeys[idx + 1];
-      mockStore.updateOrderStatus(orderId, nextStage, 'Laundry Staff Worker', `Advanced from ${currentStage} to ${nextStage}`);
+      try {
+        await updateOrderStatus(orderId, {
+          status: nextStage,
+          notes: `Advanced from ${currentStage} to ${nextStage}`,
+        });
+        await fetchBoard();
+      } catch {
+        mockStore.updateOrderStatus(orderId, nextStage, 'Laundry Staff Worker', `Advanced from ${currentStage} to ${nextStage}`);
+        setOrders(mockStore.getOrders());
+      }
     }
   };
 
@@ -42,6 +115,11 @@ export function LaundryPage() {
       <PageHeader
         title="Laundry Work Board"
         description="Garment processing Kanban queue. Track and advance clothes through each operational stage."
+        action={
+          <Button variant="secondary" size="sm" onClick={() => fetchBoard()} disabled={loading}>
+            <RefreshCw className={`mr-1 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh Board
+          </Button>
+        }
       />
 
       {/* Kanban Columns Row */}
@@ -99,30 +177,35 @@ export function LaundryPage() {
                           </div>
                         </div>
 
-                        {/* Cover / Bag Code */}
-                        <div className="flex items-center gap-2 text-[10px] font-mono text-text-muted">
-                          {order.coverCode && <span className="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200">{order.coverCode}</span>}
-                          {order.bagCode && <span className="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200">{order.bagCode}</span>}
-                        </div>
+                        {/* Storage Box / Hanger Code */}
+                        {(order.coverCode || order.bagCode) && (
+                          <div className="flex gap-2 text-[10px] font-mono">
+                            {order.coverCode && (
+                              <span className="rounded bg-primary-light px-1.5 py-0.5 font-semibold text-primary">
+                                {order.coverCode}
+                              </span>
+                            )}
+                            {order.bagCode && (
+                              <span className="rounded bg-border/40 px-1.5 py-0.5 text-text-muted">
+                                {order.bagCode}
+                              </span>
+                            )}
+                          </div>
+                        )}
 
-                        {/* Card Actions */}
-                        <div className="pt-2 border-t border-border/50 flex items-center justify-between">
-                          <span className="text-[10px] text-text-muted">
-                            Due: {new Date(order.expectedCompletion).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-
-                          {stageInfo.key !== 'READY' && (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAdvance(order.id, order.currentStage);
-                              }}
-                            >
-                              Next Stage <ArrowRight className="ml-1 h-3 w-3" />
-                            </Button>
-                          )}
+                        {/* Action CTA */}
+                        <div className="pt-1">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="w-full justify-center text-[11px] font-semibold"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAdvance(order.id, order.currentStage);
+                            }}
+                          >
+                            Next Stage <ArrowRight className="ml-1 h-3 w-3" />
+                          </Button>
                         </div>
                       </div>
                     );

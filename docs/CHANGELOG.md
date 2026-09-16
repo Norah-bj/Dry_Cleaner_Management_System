@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-09-16 (Stage C — Frontend / Backend Integration: Orders, Laundry, Payments, Logistics)
+
+**Phase:** 1 — Frontend / Backend Integration (Wire React UI to NestJS REST APIs — Stage C)
+
+Wired React UI pages and components to live NestJS backend REST endpoints with graceful offline/mock fallback:
+
+- **API Client & Services**:
+  - `services/orders.ts`: Typed API client for `listOrders`, `getOrder`, `createOrder`, `updateOrderStatus`, and public `trackOrder`.
+  - `services/laundry.ts`: Typed API client for `getLaundryBoard` (Kanban active stages feed) and `getLaundryMetrics`.
+  - `services/payments.ts`: Typed API client for `recordOrderPayment`, `getOrderPayments`, `listPayments`, and `getPaymentsSummary`.
+  - `services/logistics.ts`: Typed API client for `listPickups`, `createPickup`, `updatePickup`, `listDeliveries`, `createDelivery`, `updateDelivery`, and `getDriverTasks`.
+
+- **UI Feature Integration**:
+  - `features/orders/OrdersPage.tsx`: Live server-side filtering, searching, pagination, and fallback to mock store.
+  - `features/orders/NewOrderPage.tsx`: Customer auto-creation/lookup via backend API, backend order creation with itemized garments & materials, initial payment recording, and immediate modal slip presentation.
+  - `features/orders/OrderDetailsPage.tsx`: Live backend order retrieval, status updates across stages, and payment recording modal with real-time balance recalculation.
+  - `features/laundry/LaundryPage.tsx`: Live Kanban board rendering stage columns (`RECEIVED` through `READY`), drag/stage advance calling `updateOrderStatus`, live metrics counters.
+  - `features/payments/PaymentsPage.tsx`: Live backend payment list, financial summary aggregation (Cash, MoMo, Bank, Card), search and status filtering.
+  - `features/pickups/PickupDeliveryPage.tsx`: Tabbed management for Pickups, Deliveries, and Drivers wired to `listPickups` and `listDeliveries` with stage progression.
+  - `features/customer/CustomerMobilePage.tsx`: Public customer tracking using `trackOrder(orderNumber)` and online pickup request creation via `createPickup`.
+  - `features/driver/DriverMobileView.tsx`: Lightweight mobile driver interface wired to `getDriverTasks(driverId)` with one-click status transitions.
+
+- **Verification & Build**:
+  - Frontend TypeScript compilation and Vite production build passed cleanly (`npm run build`).
+  - Backend unit test suite passed 27/27 tests (`npm test`).
+  - Backend production build passed cleanly (`npm run build`).
+
+---
+
 ## 2026-09-14 (Stage B — Backend Modules: Orders, Laundry, Payments, Logistics)
 
 **Phase:** 1 — Backend Modular Monolith (Orders, Laundry, Payments, Logistics — Stage B)

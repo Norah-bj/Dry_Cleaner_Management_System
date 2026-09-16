@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, Plus, Search } from 'lucide-react';
+import { ClipboardList, Plus, Search, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -8,25 +8,115 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { StatusBadge } from '../../components/orders/StatusBadge';
 import { ServiceTierBadge } from '../../components/orders/ServiceTierBadge';
 import { mockStore } from '../../mock/mock-store';
-import type { Order } from '../../types/order';
+import { listOrders, type ApiOrder } from '../../services/orders';
+import type { LaundryStage, Order, PaymentStatus, ServiceTier } from '../../types/order';
 import { cn } from '../../lib/cn';
 
 const FILTERS = ['All', 'Processing', 'Ready', 'Delivered', 'Unpaid'] as const;
+
+function mapApiOrderToOrder(api: ApiOrder): Order {
+  const currentStage = (api.status === 'CANCELLED' ? 'RECEIVED' : api.status) as LaundryStage;
+  const serviceTier = (api.serviceTier === 'STANDARD' ? 'NORMAL' : api.serviceTier) as ServiceTier;
+  const paymentStatus: PaymentStatus =
+    api.paymentStatus === 'PAID'
+      ? 'PAID'
+      : api.paymentStatus === 'PARTIALLY_PAID'
+        ? 'PARTIAL'
+        : 'UNPAID';
+
+  return {
+    id: api.id,
+    orderNumber: api.orderNumber,
+    customerId: api.customerId,
+    customerName: api.customer?.name ?? 'Customer',
+    customerPhone: api.customer?.phone ?? '',
+    customerAddress: api.customer?.address,
+    serviceTier,
+    currentStage,
+    expectedCompletion: api.expectedCompletion ?? new Date().toISOString(),
+    coverCode: api.storageHangerId,
+    bagCode: api.storageBoxId,
+    hangersCount: api.materials.filter((m) => m.materialType === 'HANGER').reduce((s, m) => s + m.quantity, 0),
+    envelopesCount: api.materials.filter((m) => m.materialType === 'ENVELOPE').reduce((s, m) => s + m.quantity, 0),
+    items: api.items.map((it, idx) => ({
+      id: it.id ?? `item-${idx}`,
+      garmentName: it.garmentName,
+      quantity: it.quantity,
+      unitPrice: Number(it.unitPrice),
+      totalPrice: Number(it.lineTotal ?? it.quantity * it.unitPrice),
+      notes: it.notes,
+    })),
+    materials: api.materials.map((m, idx) => ({
+      id: m.id ?? `mat-${idx}`,
+      name: m.materialType,
+      quantity: m.quantity,
+      unitPrice: Number(m.unitCharge),
+      totalPrice: Number(m.totalCharge ?? m.quantity * m.unitCharge),
+      customerProvided: m.customerProvided ?? false,
+    })),
+    subtotal: Number(api.subtotal),
+    materialCharges: Number(api.materialCharges),
+    priorityFee: 0,
+    discount: Number(api.discount),
+    totalAmount: Number(api.total),
+    amountPaid: Number(api.amountPaid),
+    balanceDue: Number(api.balance),
+    paymentStatus,
+    statusHistory: (api.statusHistory ?? []).map((sh) => ({
+      id: sh.id,
+      stage: (sh.newStatus === 'CANCELLED' ? 'RECEIVED' : sh.newStatus) as LaundryStage,
+      changedBy: sh.changedByUserId ?? 'Staff',
+      changedAt: sh.createdAt,
+      notes: sh.notes,
+    })),
+    payments: (api.payments ?? []).map((p) => ({
+      id: p.id,
+      receiptNumber: p.receiptNumber,
+      amount: Number(p.amount),
+      method: p.paymentMethod === 'MOMO' ? 'MOBILE_MONEY' : p.paymentMethod,
+      receivedBy: p.receivedByUserId ?? 'Cashier',
+      receivedAt: p.createdAt,
+      reference: p.referenceNumber,
+    })),
+    notes: api.notes,
+    createdAt: api.createdAt,
+    updatedAt: api.updatedAt,
+  };
+}
 
 export function OrdersPage() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All');
   const [search, setSearch] = useState('');
   const [orders, setOrders] = useState<Order[]>(() => mockStore.getOrders());
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await listOrders({ search: search || undefined });
+      if (res && res.data) {
+        setOrders(res.data.map(mapApiOrderToOrder));
+      }
+    } catch {
+      // Fall back to mock store if backend is not currently connected
+      setOrders(mockStore.getOrders());
+    } finally {
+      setLoading(false);
+    }
+  }, [search]);
 
   useEffect(() => {
-    return mockStore.subscribe(() => {
-      setOrders(mockStore.getOrders());
+    fetchOrders();
+    const unsub = mockStore.subscribe(() => {
+      // Keep mock sync as live listener
     });
-  }, []);
+    return unsub;
+  }, [fetchOrders]);
 
   const filteredOrders = orders.filter((order) => {
-    // Search query filter
     const matchesSearch =
       search === '' ||
       order.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
@@ -35,7 +125,6 @@ export function OrdersPage() {
 
     if (!matchesSearch) return false;
 
-    // Filter tab query
     if (filter === 'Processing') {
       return !['READY', 'DELIVERED'].includes(order.currentStage);
     }
@@ -58,11 +147,23 @@ export function OrdersPage() {
         title="Orders"
         description="Manage customer orders from intake through processing to pickup and delivery."
         action={
-          <Button onClick={() => navigate('/orders/new')}>
-            <Plus className="mr-1 h-4 w-4" /> New Order
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={() => fetchOrders()} disabled={loading}>
+              <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+            </Button>
+            <Button onClick={() => navigate('/orders/new')}>
+              <Plus className="mr-1 h-4 w-4" /> New Order
+            </Button>
+          </div>
         }
       />
+
+      {error && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
+          <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* Quick Filter Tabs & Search Bar */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -98,7 +199,12 @@ export function OrdersPage() {
 
       {/* Orders Table Card */}
       <Card className="p-0 overflow-hidden">
-        {filteredOrders.length === 0 ? (
+        {loading && orders.length === 0 ? (
+          <div className="p-8 text-center text-xs text-text-muted">
+            <RefreshCw className="mx-auto mb-2 h-5 w-5 animate-spin text-primary" />
+            Loading orders...
+          </div>
+        ) : filteredOrders.length === 0 ? (
           <div className="p-6">
             <EmptyState
               icon={ClipboardList}
