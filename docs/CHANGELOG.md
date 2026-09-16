@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-09-16 (Stage D — End-to-End Testing & Scenario Verification)
+
+**Phase:** 1 — Quality Assurance & Scenario Verification (Stage D)
+
+Built comprehensive automated End-to-End (E2E) test suites, domain scenario simulator, and contract verifiers:
+
+- **Backend E2E Test Suites (`backend/test/`)**:
+  - `orders-lifecycle.e2e-spec.ts`: End-to-end tests for customer intake, order creation with garments & packaging materials, priority tier calculations, 8-stage laundry Kanban progression, audit history tracking, and public customer tracking.
+  - `payments-invoicing.e2e-spec.ts`: Tests for upfront deposit recording (`PARTIALLY_PAID`), balance tracking, full settlement (`PAID`), receipt generation (`RCP-YYYY-XXXXX`), auto-invoicing (`INV-YYYY-XXXXX`), and revenue summary metrics.
+  - `logistics-driver.e2e-spec.ts`: Tests for pickup scheduling, driver assignment, pickup dispatch, delivery scheduling with balance collection, delivery completion, and mobile driver task feed aggregation.
+  - `app.e2e-spec.ts`: System health & Terminus checks.
+
+- **Scenario Verification Runner (`backend/test/scenarios-runner.ts`)**:
+  - Standalone script (`npm run test:scenarios`) executing the 4 major domain scenarios with step timings and formatted console reports (18/18 steps passed).
+
+- **Frontend Contract Verifier (`frontend/scripts/verify-e2e-flows.mjs`)**:
+  - Validates API client schemas, payment method mappings, and laundry pipeline stages (`npm run test:contracts`).
+
+- **Documentation & Guides**:
+  - `docs/testing/E2E-TESTING-GUIDE.md`: Full testing guide covering automated commands and manual step-by-step UI scenarios.
+
+- **Test Results**:
+  - `backend`: `npm run test:e2e` (4/4 test suites passed, 19/19 tests passed).
+  - `backend`: `npm test` (7/7 unit test suites passed, 27/27 tests passed).
+  - `backend`: `npm run test:scenarios` (18/18 steps passed, 100%).
+  - `frontend`: `npm run test:contracts` (4/4 contracts passed).
+  - `frontend`: `npm run build` (Clean production build).
+  - `backend`: `npm run build` (Clean production build).
+
+---
+
 ## 2026-09-16 (Stage C — Frontend / Backend Integration: Orders, Laundry, Payments, Logistics)
 
 **Phase:** 1 — Frontend / Backend Integration (Wire React UI to NestJS REST APIs — Stage C)

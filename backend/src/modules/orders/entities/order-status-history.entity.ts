@@ -6,7 +6,8 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { Order, OrderStatus } from './order.entity';
+import { Order } from './order.entity';
+import { OrderStatus } from '../enums/order-enums';
 
 @Entity('order_status_history')
 export class OrderStatusHistory {

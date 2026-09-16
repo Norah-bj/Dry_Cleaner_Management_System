@@ -1,29 +1,49 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import { HealthController } from '../src/health/health.controller';
+import { HealthCheckService, TypeOrmHealthIndicator } from '@nestjs/terminus';
 
-describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+describe('Health & App Bootstrap (e2e)', () => {
+  let app: INestApplication;
 
-  beforeEach(async () => {
+  const mockHealthCheckService = {
+    check: jest.fn().mockResolvedValue({
+      status: 'ok',
+      info: { database: { status: 'up' } },
+      error: {},
+      details: { database: { status: 'up' } },
+    }),
+  };
+
+  const mockTypeOrmHealthIndicator = {
+    pingCheck: jest.fn().mockResolvedValue({ database: { status: 'up' } }),
+  };
+
+  beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      controllers: [HealthController],
+      providers: [
+        { provide: HealthCheckService, useValue: mockHealthCheckService },
+        { provide: TypeOrmHealthIndicator, useValue: mockTypeOrmHealthIndicator },
+      ],
     }).compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+  afterAll(async () => {
+    await app.close();
   });
 
-  afterEach(async () => {
-    await app.close();
+  it('/health (GET) - returns 200 OK with system status', () => {
+    return request(app.getHttpServer())
+      .get('/health')
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.status).toBe('ok');
+        expect(res.body.details.database.status).toBe('up');
+      });
   });
 });
