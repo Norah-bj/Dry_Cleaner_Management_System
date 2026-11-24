@@ -43,12 +43,12 @@ describe('OrdersService', () => {
     };
 
     service = new OrdersService(
-      ordersRepo,
-      orderItemsRepo,
-      orderMaterialsRepo,
-      statusHistoryRepo,
-      customersRepo,
-      dataSource,
+      ordersRepo as never,
+      orderItemsRepo as never,
+      orderMaterialsRepo as never,
+      statusHistoryRepo as never,
+      customersRepo as never,
+      dataSource as never,
     );
   });
 

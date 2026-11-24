@@ -39,11 +39,11 @@ describe('LogisticsService', () => {
     };
 
     service = new LogisticsService(
-      pickupsRepo,
-      deliveriesRepo,
-      customersRepo,
-      ordersRepo,
-      dataSource,
+      pickupsRepo as never,
+      deliveriesRepo as never,
+      customersRepo as never,
+      ordersRepo as never,
+      dataSource as never,
       { create: jest.fn() } as never,
     );
   });

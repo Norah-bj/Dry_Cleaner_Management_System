@@ -54,10 +54,10 @@ describe('PaymentsService', () => {
     };
 
     service = new PaymentsService(
-      paymentsRepo,
-      invoicesRepo,
-      ordersRepo,
-      dataSource,
+      paymentsRepo as never,
+      invoicesRepo as never,
+      ordersRepo as never,
+      dataSource as never,
     );
   });
 
