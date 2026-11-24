@@ -1,3 +1,4 @@
+import { SampleDataBanner } from '../../components/ui/SampleDataBanner';
 import { useState } from 'react';
 import { BarChart3, TrendingUp, Package, Users, ShoppingBag, Download } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
@@ -97,6 +98,7 @@ export function ReportsPage() {
 
   return (
     <div className="space-y-6">
+      <SampleDataBanner what="All figures" />
       <PageHeader
         title="Reports"
         description="Business performance overview."
