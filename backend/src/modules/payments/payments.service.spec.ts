@@ -102,6 +102,13 @@ describe('PaymentsService', () => {
       expect(mockOrder.amountPaid).toBe(5000);
       expect(mockOrder.balance).toBe(0);
       expect(mockOrder.paymentStatus).toBe(PaymentStatus.PAID);
+      // Regression: locking the order while its eager relations load via
+      // LEFT JOIN makes Postgres reject the query (FOR UPDATE on an outer join).
+      expect(mockEntityManager.findOne).toHaveBeenCalledWith(Order, {
+        where: { id: 'order-1' },
+        lock: { mode: 'pessimistic_write' },
+        loadEagerRelations: false,
+      });
     });
 
     it('throws NotFoundException when order not found', async () => {
