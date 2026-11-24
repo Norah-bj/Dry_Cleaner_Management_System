@@ -4,7 +4,8 @@ import { ArrowRight, Tag, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { ServiceTierBadge } from '../../components/orders/ServiceTierBadge';
-import { mockStore } from '../../mock/mock-store';
+import { LoadError } from '../../components/ui/LoadError';
+import { errorMessage } from '../../lib/error-message';
 import { getLaundryBoard } from '../../services/laundry';
 import { updateOrderStatus, type ApiOrder } from '../../services/orders';
 import type { LaundryStage, Order, ServiceTier } from '../../types/order';
@@ -63,33 +64,29 @@ function mapApiOrderToOrder(api: ApiOrder): Order {
 
 export function LaundryPage() {
   const navigate = useNavigate();
-  const [orders, setOrders] = useState<Order[]>(() => mockStore.getOrders());
-  const [loading, setLoading] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchBoard = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await getLaundryBoard();
-      if (data && data.columns) {
-        const flattened: Order[] = [];
-        for (const stage of Object.keys(data.columns)) {
-          const stageList = data.columns[stage] || [];
-          flattened.push(...stageList.map(mapApiOrderToOrder));
-        }
-        setOrders(flattened);
+      const flattened: Order[] = [];
+      for (const stage of Object.keys(data.columns ?? {})) {
+        flattened.push(...(data.columns[stage] ?? []).map(mapApiOrderToOrder));
       }
-    } catch {
-      setOrders(mockStore.getOrders());
+      setOrders(flattened);
+    } catch (err) {
+      setError(errorMessage(err, 'load the laundry board'));
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchBoard();
-    return mockStore.subscribe(() => {
-      // Mock store subscription listener
-    });
+    void fetchBoard();
   }, [fetchBoard]);
 
   const handleAdvance = async (orderId: string, currentStage: LaundryStage) => {
@@ -97,15 +94,15 @@ export function LaundryPage() {
     const idx = stageKeys.indexOf(currentStage);
     if (idx < stageKeys.length - 1) {
       const nextStage = stageKeys[idx + 1];
+      setError(null);
       try {
         await updateOrderStatus(orderId, {
           status: nextStage,
           notes: `Advanced from ${currentStage} to ${nextStage}`,
         });
         await fetchBoard();
-      } catch {
-        mockStore.updateOrderStatus(orderId, nextStage, 'Laundry Staff Worker', `Advanced from ${currentStage} to ${nextStage}`);
-        setOrders(mockStore.getOrders());
+      } catch (err) {
+        setError(errorMessage(err, 'move this order to the next stage'));
       }
     }
   };
@@ -121,6 +118,12 @@ export function LaundryPage() {
           </Button>
         }
       />
+
+      {error && (
+        <div className="mb-4">
+          <LoadError message={error} onRetry={() => void fetchBoard()} />
+        </div>
+      )}
 
       {/* Kanban Columns Row */}
       <div className="flex-1 flex gap-3 overflow-x-auto pb-4">

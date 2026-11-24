@@ -8,10 +8,12 @@ import { OrderSlipModal } from '../../components/orders/OrderSlipModal';
 import { OrderTimeline } from '../../components/orders/OrderTimeline';
 import { ServiceTierBadge } from '../../components/orders/ServiceTierBadge';
 import { StatusBadge } from '../../components/orders/StatusBadge';
-import { mockStore } from '../../mock/mock-store';
-import { getOrder, updateOrderStatus, type ApiOrder } from '../../services/orders';
+import { LoadError } from '../../components/ui/LoadError';
+import { errorMessage } from '../../lib/error-message';
+import { mapApiOrderToOrder } from '../../services/order-mapper';
+import { getOrder, updateOrderStatus } from '../../services/orders';
 import { recordOrderPayment } from '../../services/payments';
-import type { LaundryStage, Order, PaymentMethod, ServiceTier, PaymentStatus } from '../../types/order';
+import type { LaundryStage, Order, PaymentMethod } from '../../types/order';
 
 const STAGES: LaundryStage[] = [
   'RECEIVED',
@@ -25,81 +27,14 @@ const STAGES: LaundryStage[] = [
   'DELIVERED',
 ];
 
-function mapApiOrderToOrder(api: ApiOrder): Order {
-  const currentStage = (api.status === 'CANCELLED' ? 'RECEIVED' : api.status) as LaundryStage;
-  const serviceTier = (api.serviceTier === 'STANDARD' ? 'NORMAL' : api.serviceTier) as ServiceTier;
-  const paymentStatus: PaymentStatus =
-    api.paymentStatus === 'PAID'
-      ? 'PAID'
-      : api.paymentStatus === 'PARTIALLY_PAID'
-        ? 'PARTIAL'
-        : 'UNPAID';
-
-  return {
-    id: api.id,
-    orderNumber: api.orderNumber,
-    customerId: api.customerId,
-    customerName: api.customer?.name ?? 'Customer',
-    customerPhone: api.customer?.phone ?? '',
-    customerAddress: api.customer?.address,
-    serviceTier,
-    currentStage,
-    expectedCompletion: api.expectedCompletion ?? new Date().toISOString(),
-    coverCode: api.storageHangerId,
-    bagCode: api.storageBoxId,
-    hangersCount: api.materials.filter((m) => m.materialType === 'HANGER').reduce((s, m) => s + m.quantity, 0),
-    envelopesCount: api.materials.filter((m) => m.materialType === 'ENVELOPE').reduce((s, m) => s + m.quantity, 0),
-    items: api.items.map((it, idx) => ({
-      id: it.id ?? `item-${idx}`,
-      garmentName: it.garmentName,
-      quantity: it.quantity,
-      unitPrice: Number(it.unitPrice),
-      totalPrice: Number(it.lineTotal ?? it.quantity * it.unitPrice),
-      notes: it.notes,
-    })),
-    materials: api.materials.map((m, idx) => ({
-      id: m.id ?? `mat-${idx}`,
-      name: m.materialType,
-      quantity: m.quantity,
-      unitPrice: Number(m.unitCharge),
-      totalPrice: Number(m.totalCharge ?? m.quantity * m.unitCharge),
-      customerProvided: m.customerProvided ?? false,
-    })),
-    subtotal: Number(api.subtotal),
-    materialCharges: Number(api.materialCharges),
-    priorityFee: 0,
-    discount: Number(api.discount),
-    totalAmount: Number(api.total),
-    amountPaid: Number(api.amountPaid),
-    balanceDue: Number(api.balance),
-    paymentStatus,
-    statusHistory: (api.statusHistory ?? []).map((sh) => ({
-      id: sh.id,
-      stage: (sh.newStatus === 'CANCELLED' ? 'RECEIVED' : sh.newStatus) as LaundryStage,
-      changedBy: sh.changedByUserId ?? 'Staff',
-      changedAt: sh.createdAt,
-      notes: sh.notes,
-    })),
-    payments: (api.payments ?? []).map((p) => ({
-      id: p.id,
-      receiptNumber: p.receiptNumber,
-      amount: Number(p.amount),
-      method: p.paymentMethod === 'MOMO' ? 'MOBILE_MONEY' : p.paymentMethod,
-      receivedBy: p.receivedByUserId ?? 'Cashier',
-      receivedAt: p.createdAt,
-      reference: p.referenceNumber,
-    })),
-    notes: api.notes,
-    createdAt: api.createdAt,
-    updatedAt: api.updatedAt,
-  };
-}
-
 export function OrderDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [order, setOrder] = useState<Order | null>(() => (id ? mockStore.getOrderById(id) || null : null));
-  const [loading, setLoading] = useState(false);
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [isSlipOpen, setIsSlipOpen] = useState(false);
 
   // Payment modal state
@@ -110,33 +45,31 @@ export function OrderDetailsPage() {
   const fetchOrderDetail = useCallback(async () => {
     if (!id) return;
     setLoading(true);
+    setLoadError(null);
     try {
-      const res = await getOrder(id);
-      if (res) {
-        const mapped = mapApiOrderToOrder(res);
-        setOrder(mapped);
-        setPayAmount(mapped.balanceDue);
-      }
-    } catch {
-      const found = mockStore.getOrderById(id);
-      if (found) {
-        setOrder(found);
-        setPayAmount(found.balanceDue);
-      }
+      const mapped = mapApiOrderToOrder(await getOrder(id));
+      setOrder(mapped);
+      setPayAmount(mapped.balanceDue);
+    } catch (err) {
+      setLoadError(errorMessage(err, 'load this order'));
     } finally {
       setLoading(false);
     }
   }, [id]);
 
   useEffect(() => {
-    fetchOrderDetail();
+    void fetchOrderDetail();
   }, [fetchOrderDetail]);
 
   if (!order) {
     return (
-      <div>
-        <PageHeader title="Order Not Found" description="The requested order could not be located." />
-        <Button onClick={() => navigate('/orders')}>Back to Orders</Button>
+      <div className="space-y-4">
+        <PageHeader
+          title={loading ? 'Loading order…' : 'Order unavailable'}
+          description={loading ? undefined : 'This order could not be shown.'}
+        />
+        {loadError && <LoadError message={loadError} onRetry={() => void fetchOrderDetail()} />}
+        <Button variant="secondary" onClick={() => navigate('/orders')}>Back to Orders</Button>
       </div>
     );
   }
@@ -146,38 +79,45 @@ export function OrderDetailsPage() {
 
   const handleAdvanceStage = async () => {
     if (!nextStage || !id) return;
+    setSaving(true);
+    setActionError(null);
     try {
       await updateOrderStatus(id, { status: nextStage, notes: `Advanced to ${nextStage}` });
       await fetchOrderDetail();
-    } catch {
-      mockStore.updateOrderStatus(order.id, nextStage, 'Receptionist', `Advanced to ${nextStage}`);
-      const updated = mockStore.getOrderById(order.id);
-      if (updated) setOrder(updated);
+    } catch (err) {
+      setActionError(errorMessage(err, 'change the order status'));
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (payAmount <= 0 || !id) return;
-
+    setSaving(true);
+    setActionError(null);
     try {
       await recordOrderPayment(id, {
         amount: payAmount,
         paymentMethod: payMethod === 'MOBILE_MONEY' ? 'MOMO' : payMethod,
         notes: 'Payment recorded via Order Details',
       });
+      setIsPaymentOpen(false);
       await fetchOrderDetail();
-    } catch {
-      mockStore.addPayment(order.id, payAmount, payMethod, 'Receptionist Cashier');
-      const updated = mockStore.getOrderById(order.id);
-      if (updated) setOrder(updated);
+    } catch (err) {
+      setActionError(errorMessage(err, 'record this payment'));
+    } finally {
+      setSaving(false);
     }
-
-    setIsPaymentOpen(false);
   };
 
   return (
     <div>
+      {actionError && (
+        <div className="mb-4">
+          <LoadError message={actionError} />
+        </div>
+      )}
       <div className="mb-2">
         <button
           type="button"
@@ -202,8 +142,8 @@ export function OrderDetailsPage() {
             </Button>
 
             {nextStage && (
-              <Button onClick={handleAdvanceStage}>
-                Move to {nextStage.replace('_', ' ')} $\rightarrow$
+              <Button onClick={() => void handleAdvanceStage()} disabled={saving}>
+                Move to {nextStage.replace('_', ' ')} →
               </Button>
             )}
           </div>
@@ -434,7 +374,7 @@ export function OrderDetailsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <Card className="w-full max-w-sm p-5 space-y-4">
             <h2 className="text-sm font-bold text-text">Record Payment for {order.orderNumber}</h2>
-            <form onSubmit={handleRecordPayment} className="space-y-3 text-xs">
+            <form onSubmit={(e) => void handleRecordPayment(e)} className="space-y-3 text-xs">
               <div>
                 <label className="block font-semibold text-text mb-1">Amount to Pay (RWF)</label>
                 <input
@@ -465,7 +405,7 @@ export function OrderDetailsPage() {
                 <Button type="button" variant="secondary" onClick={() => setIsPaymentOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">Confirm Payment</Button>
+                <Button type="submit" disabled={saving}>{saving ? "Saving…" : "Confirm Payment"}</Button>
               </div>
             </form>
           </Card>

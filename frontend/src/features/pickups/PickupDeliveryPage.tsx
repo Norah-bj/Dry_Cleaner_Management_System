@@ -5,7 +5,8 @@ import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { RunBadge } from '../../components/pickups/RunBadge';
-import { pickupDeliveryStore } from '../../mock/mock-pickup-delivery-store';
+import { LoadError } from '../../components/ui/LoadError';
+import { errorMessage } from '../../lib/error-message';
 import { listPickups, listDeliveries, updatePickup, updateDelivery, type ApiPickup, type ApiDelivery } from '../../services/logistics';
 import { cn } from '../../lib/cn';
 
@@ -36,81 +37,59 @@ export function PickupDeliveryPage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Pickups');
   const [pickups, setPickups] = useState<ApiPickup[]>([]);
   const [deliveries, setDeliveries] = useState<ApiDelivery[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchLogistics = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const [pRes, dRes] = await Promise.all([listPickups(), listDeliveries()]);
       if (pRes && pRes.data) setPickups(pRes.data);
       if (dRes && dRes.data) setDeliveries(dRes.data);
-    } catch {
-      // Mock store fallback
-      const mockP = pickupDeliveryStore.getPickups().map((p) => ({
-        id: p.id,
-        pickupNumber: p.requestNumber,
-        customerId: p.customerId,
-        customer: { id: p.customerId, name: p.customerName, phone: p.customerPhone },
-        pickupAddress: p.address,
-        scheduledDate: p.preferredDate,
-        timeSlot: `${p.preferredTimeFrom} - ${p.preferredTimeTo}`,
-        status: p.status as any,
-        assignedDriverId: p.driverId,
-        assignedDriverName: p.driverName,
-        notes: p.notes,
-        createdAt: p.createdAt,
-      }));
-      const mockD = pickupDeliveryStore.getDeliveries().map((d) => ({
-        id: d.id,
-        deliveryNumber: d.requestNumber,
-        orderId: d.orderId,
-        order: { id: d.orderId, orderNumber: d.orderNumber, customer: { name: d.customerName, phone: d.customerPhone } },
-        deliveryAddress: d.address,
-        scheduledDate: d.scheduledDate,
-        timeSlot: `${d.scheduledTimeFrom} - ${d.scheduledTimeTo}`,
-        amountCollectable: d.amountCollectable,
-        status: d.status as any,
-        assignedDriverId: d.driverId,
-        assignedDriverName: d.driverName,
-        notes: d.notes,
-        createdAt: d.createdAt,
-      }));
-      setPickups(mockP);
-      setDeliveries(mockD);
+    } catch (err) {
+      setError(errorMessage(err, 'load pickups and deliveries'));
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchLogistics();
+    void fetchLogistics();
   }, [fetchLogistics]);
 
   const handleAdvancePickup = async (pickupId: string, currentStatus: string) => {
     const next = PICKUP_NEXT[currentStatus];
     if (!next) return;
+    setError(null);
     try {
       await updatePickup(pickupId, { status: next });
       await fetchLogistics();
-    } catch {
-      pickupDeliveryStore.updatePickupStatus(pickupId, next as any);
-      fetchLogistics();
+    } catch (err) {
+      setError(errorMessage(err, 'update this pickup'));
     }
   };
 
   const handleAdvanceDelivery = async (deliveryId: string, currentStatus: string) => {
     const next = DELIVERY_NEXT[currentStatus];
     if (!next) return;
+    setError(null);
     try {
       await updateDelivery(deliveryId, { status: next });
       await fetchLogistics();
-    } catch {
-      pickupDeliveryStore.updateDeliveryStatus(deliveryId, next as any);
-      fetchLogistics();
+    } catch (err) {
+      setError(errorMessage(err, 'update this delivery'));
     }
   };
 
-  const drivers = pickupDeliveryStore.getDrivers();
+  // Drivers who currently have pickups or deliveries assigned to them.
+  const drivers = Array.from(
+    new Map(
+      [...pickups, ...deliveries]
+        .filter((r) => r.assignedDriverId)
+        .map((r) => [r.assignedDriverId as string, { id: r.assignedDriverId as string, name: r.assignedDriverName ?? 'Driver' }]),
+    ).values(),
+  );
   const todayStr = new Date().toISOString().split('T')[0];
   const todayPickupsCount = pickups.filter((p) => p.scheduledDate === todayStr).length;
   const todayDeliveriesCount = deliveries.filter((d) => d.scheduledDate === todayStr).length;
@@ -155,11 +134,13 @@ export function PickupDeliveryPage() {
           <div className="text-[11px] text-rose-500 mt-1">Outstanding run cash</div>
         </Card>
         <Card className="p-4">
-          <div className="text-xs text-text-muted mb-1">Active Fleet Drivers</div>
+          <div className="text-xs text-text-muted mb-1">Drivers With Jobs</div>
           <div className="text-xl font-bold text-text">{drivers.length}</div>
-          <div className="text-[11px] text-text-muted mt-1">Assigned & available</div>
+          <div className="text-[11px] text-text-muted mt-1">Have pickups or deliveries assigned</div>
         </Card>
       </div>
+
+      {error && <LoadError message={error} onRetry={() => void fetchLogistics()} />}
 
       {/* Tabs bar */}
       <div className="flex border-b border-border">
@@ -228,7 +209,7 @@ export function PickupDeliveryPage() {
                       className="w-full justify-center text-xs"
                       onClick={() => handleAdvancePickup(p.id, p.status)}
                     >
-                      Advance to {PICKUP_NEXT[p.status]?.replace('_', ' ')} $\rightarrow$
+                      Advance to {PICKUP_NEXT[p.status]?.replace('_', ' ')} →
                     </Button>
                   )}
                 </Card>
@@ -284,7 +265,7 @@ export function PickupDeliveryPage() {
                       className="w-full justify-center text-xs"
                       onClick={() => handleAdvanceDelivery(d.id, d.status)}
                     >
-                      Advance to {DELIVERY_NEXT[d.status]?.replace('_', ' ')} $\rightarrow$
+                      Advance to {DELIVERY_NEXT[d.status]?.replace('_', ' ')} →
                     </Button>
                   )}
                 </Card>
@@ -297,27 +278,18 @@ export function PickupDeliveryPage() {
       {/* Tab 3: Drivers */}
       {tab === 'Drivers' && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {drivers.length === 0 && (
+            <Card className="p-8 md:col-span-3">
+              <EmptyState icon={User} title="No drivers have jobs yet" description="Drivers appear here once a pickup or delivery is assigned to them." />
+            </Card>
+          )}
           {drivers.map((drv) => (
             <Card key={drv.id} className="p-4 space-y-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 font-bold text-primary">
                   {drv.name.slice(0, 2).toUpperCase()}
                 </div>
-                <div>
-                  <div className="font-bold text-sm text-text">{drv.name}</div>
-                  <div className="text-xs text-text-muted">{drv.phone}</div>
-                </div>
-              </div>
-
-              <div className="border-t border-border pt-2 text-xs space-y-1">
-                <div className="flex justify-between text-text-muted">
-                  <span>Vehicle:</span>
-                  <span className="font-medium text-text">{drv.vehicleType}</span>
-                </div>
-                <div className="flex justify-between text-text-muted">
-                  <span>Plate Number:</span>
-                  <span className="font-mono text-text">{drv.plateNumber}</span>
-                </div>
+                <div className="font-bold text-sm text-text">{drv.name}</div>
               </div>
 
               <div className="pt-2">
@@ -327,7 +299,7 @@ export function PickupDeliveryPage() {
                   rel="noopener noreferrer"
                   className="block text-center rounded-md border border-primary px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary hover:text-white transition-colors"
                 >
-                  Open Driver Mobile View $\rightarrow$
+                  Open Driver Mobile View →
                 </a>
               </div>
             </Card>

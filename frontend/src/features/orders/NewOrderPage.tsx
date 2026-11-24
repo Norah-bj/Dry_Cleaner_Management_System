@@ -6,9 +6,11 @@ import { Card } from '../../components/ui/Card';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { OrderSlipModal } from '../../components/orders/OrderSlipModal';
 import { MASTER_GARMENTS, MASTER_MATERIALS } from '../../mock/mock-data';
-import { mockStore } from '../../mock/mock-store';
 import { createCustomer, listCustomers } from '../../services/customers';
-import { createOrder as apiCreateOrder } from '../../services/orders';
+import { createOrder as apiCreateOrder, getOrder } from '../../services/orders';
+import { mapApiOrderToOrder } from '../../services/order-mapper';
+import { errorMessage } from '../../lib/error-message';
+import { LoadError } from '../../components/ui/LoadError';
 import { recordOrderPayment } from '../../services/payments';
 import type { Order, PaymentMethod, ServiceTier } from '../../types/order';
 
@@ -32,33 +34,28 @@ export function NewOrderPage() {
   const navigate = useNavigate();
 
   // Step 1: Customer
-  const [customerName, setCustomerName] = useState('Jean Claude');
-  const [customerPhone, setCustomerPhone] = useState('0788123456');
-  const [customerAddress, setCustomerAddress] = useState('Nyamata Sector');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
 
   // Step 2: Garments
-  const [items, setItems] = useState<SelectedGarment[]>([
-    { garmentId: 'g1', garmentName: 'Shirt / Blouse', quantity: 2, unitPrice: 2000 },
-    { garmentId: 'g2', garmentName: 'Trouser / Pants', quantity: 1, unitPrice: 2500 },
-  ]);
+  const [items, setItems] = useState<SelectedGarment[]>([]);
   const [selectedGarmentId, setSelectedGarmentId] = useState('g3');
 
   // Step 3: Priority Service Tier
-  const [serviceTier, setServiceTier] = useState<ServiceTier>('EXPRESS');
+  const [serviceTier, setServiceTier] = useState<ServiceTier>('NORMAL');
 
   // Step 4: Packaging Materials
-  const [materials, setMaterials] = useState<SelectedMaterial[]>([
-    { materialId: 'm1', materialName: 'Garment Plastic Cover', quantity: 1, unitPrice: 300, customerProvided: false },
-    { materialId: 'm2', materialName: 'Heavy Laundry Bag', quantity: 1, unitPrice: 500, customerProvided: false },
-  ]);
+  const [materials, setMaterials] = useState<SelectedMaterial[]>([]);
 
   // Step 5: Payment & Notes
   const [discount, setDiscount] = useState(0);
-  const [payNow, setPayNow] = useState(true);
-  const [paymentAmount, setPaymentAmount] = useState(5000);
+  const [payNow, setPayNow] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('MOBILE_MONEY');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Slip modal after creation
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
@@ -158,111 +155,69 @@ export function NewOrderPage() {
     }
 
     setSubmitting(true);
+    setSubmitError(null);
 
     try {
-      // 1. Find or create customer in backend
-      let customerId: string | undefined;
-      try {
-        const custSearch = await listCustomers({ search: customerPhone });
-        const existingCust = custSearch.data.find(
-          (c) => c.phone === customerPhone || c.name.toLowerCase() === customerName.toLowerCase(),
-        );
+      // 1. Find the customer by phone, or register them.
+      const custSearch = await listCustomers({ search: customerPhone });
+      const existingCust = custSearch.data.find((c) => c.phone === customerPhone);
+      const customerId = existingCust
+        ? existingCust.id
+        : (
+            await createCustomer({
+              name: customerName,
+              phone: customerPhone,
+              address: customerAddress || undefined,
+            })
+          ).id;
 
-        if (existingCust) {
-          customerId = existingCust.id;
-        } else {
-          const newCust = await createCustomer({
-            name: customerName,
-            phone: customerPhone,
-            address: customerAddress || undefined,
-          });
-          customerId = newCust.id;
-        }
-      } catch {
-        // Customer module local fallback
-      }
-
-      // 2. Create order via Backend API if customer ID resolved
-      let createdApiOrder: any = null;
-      if (customerId) {
-        try {
-          const backendServiceTier =
-            serviceTier === 'NORMAL' ? 'STANDARD' : serviceTier;
-
-          createdApiOrder = await apiCreateOrder({
-            customerId,
-            serviceTier: backendServiceTier,
-            discount,
-            notes,
-            items: items.map((i) => ({
-              garmentName: i.garmentName,
-              quantity: i.quantity,
-              unitPrice: i.unitPrice,
-              serviceTier: backendServiceTier,
-            })),
-            materials: materials.map((m) => ({
-              materialType: m.materialName.includes('Cover')
-                ? 'COVER'
-                : m.materialName.includes('Bag')
-                  ? 'BAG'
-                  : m.materialName.includes('Hanger')
-                    ? 'HANGER'
-                    : 'ENVELOPE',
-              quantity: m.quantity,
-              customerProvided: m.customerProvided,
-              unitCharge: m.unitPrice,
-            })),
-          });
-
-          // If payment was made at intake
-          if (payNow && paymentAmount > 0 && createdApiOrder?.id) {
-            await recordOrderPayment(createdApiOrder.id, {
-              amount: paymentAmount,
-              paymentMethod: paymentMethod === 'MOBILE_MONEY' ? 'MOMO' : paymentMethod,
-              notes: 'Initial intake payment',
-            });
-          }
-        } catch {
-          // Backend call failed, gracefully falling back to local store
-        }
-      }
-
-      // Sync with local mock store for instant UI continuity
-      const newOrder = mockStore.createOrder({
-        customerId: customerId || 'cust-direct',
-        customerName,
-        customerPhone,
-        customerAddress,
-        serviceTier,
+      // 2. Create the order on the server. The slip shows what the server saved.
+      const backendServiceTier = serviceTier === 'NORMAL' ? 'STANDARD' : serviceTier;
+      const created = await apiCreateOrder({
+        customerId,
+        serviceTier: backendServiceTier,
+        discount,
+        notes,
         items: items.map((i) => ({
           garmentName: i.garmentName,
           quantity: i.quantity,
           unitPrice: i.unitPrice,
-          totalPrice: i.quantity * i.unitPrice,
+          serviceTier: backendServiceTier,
         })),
         materials: materials.map((m) => ({
-          name: m.materialName,
+          materialType: m.materialName.includes('Cover')
+            ? 'COVER'
+            : m.materialName.includes('Bag')
+              ? 'BAG'
+              : m.materialName.includes('Hanger')
+                ? 'HANGER'
+                : 'ENVELOPE',
           quantity: m.quantity,
-          unitPrice: m.unitPrice,
-          totalPrice: m.customerProvided ? 0 : m.quantity * m.unitPrice,
           customerProvided: m.customerProvided,
+          unitCharge: m.unitPrice,
         })),
-        discount,
-        initialPayment: payNow && paymentAmount > 0 ? {
-          amount: paymentAmount,
-          method: paymentMethod,
-        } : undefined,
-        notes,
       });
 
-      // Prefer backend order number if available
-      if (createdApiOrder?.orderNumber) {
-        newOrder.orderNumber = createdApiOrder.orderNumber;
-        newOrder.id = createdApiOrder.id;
+      // 3. Payment taken at intake, if any.
+      if (payNow && paymentAmount > 0) {
+        try {
+          await recordOrderPayment(created.id, {
+            amount: paymentAmount,
+            paymentMethod: paymentMethod === 'MOBILE_MONEY' ? 'MOMO' : paymentMethod,
+            notes: 'Initial intake payment',
+          });
+        } catch (err) {
+          // The order exists; only the payment failed. Say so plainly.
+          setSubmitError(
+            `Order ${created.orderNumber} was saved, but the payment was not recorded: ${errorMessage(err, 'record the payment')} Record it from the order page.`,
+          );
+        }
       }
 
-      setCreatedOrder(newOrder);
+      setCreatedOrder(mapApiOrderToOrder(await getOrder(created.id)));
       setIsSlipOpen(true);
+    } catch (err) {
+      setSubmitError(errorMessage(err, 'save this order'));
     } finally {
       setSubmitting(false);
     }
@@ -688,6 +643,12 @@ export function NewOrderPage() {
                 className="w-full rounded border border-border bg-surface p-2 text-xs text-text placeholder:text-text-muted focus:border-primary focus:outline-none"
               />
             </div>
+
+            {submitError && (
+              <div className="mt-4">
+                <LoadError message={submitError} />
+              </div>
+            )}
 
             {/* Submit CTA */}
             <Button

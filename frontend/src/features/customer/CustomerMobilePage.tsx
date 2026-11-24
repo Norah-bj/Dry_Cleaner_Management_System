@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { CheckCircle, MessageCircle, Package, Phone, Search, Shirt, Loader2 } from 'lucide-react';
-import { mockStore } from '../../mock/mock-store';
+import { ApiError } from '../../lib/api-client';
 import { trackOrder } from '../../services/orders';
-import { createPickup } from '../../services/logistics';
-import { listCustomers, createCustomer } from '../../services/customers';
+import { requestPickup } from '../../services/logistics';
 
 /**
  * Customer Mobile Web — /customer
@@ -52,6 +51,7 @@ function OrderTracker() {
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -59,6 +59,7 @@ function OrderTracker() {
 
     setLoading(true);
     setSearched(true);
+    setError(null);
 
     try {
       const res = await trackOrder(query.trim().toUpperCase());
@@ -77,9 +78,12 @@ function OrderTracker() {
       } else {
         setOrder(null);
       }
-    } catch {
-      const local = mockStore.getOrderById(query.trim().toUpperCase());
-      setOrder(local || null);
+    } catch (err) {
+      setOrder(null);
+      // 404 = no such order (shown below as "not found"); anything else is a real failure.
+      if (!(err instanceof ApiError && err.status === 404)) {
+        setError("We couldn't check your order right now. Please try again in a moment, or contact us.");
+      }
     } finally {
       setLoading(false);
     }
@@ -113,7 +117,13 @@ function OrderTracker() {
         </button>
       </form>
 
-      {searched && !order && !loading && (
+      {error && (
+        <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-center text-sm text-rose-800">
+          {error}
+        </div>
+      )}
+
+      {searched && !order && !loading && !error && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 text-center text-sm text-slate-500">
           <Package className="mx-auto mb-2 h-8 w-8 text-slate-300" />
           Order <strong>{query.toUpperCase()}</strong> not found.<br />
@@ -184,6 +194,7 @@ function PickupForm() {
   const [notes, setNotes] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -191,36 +202,14 @@ function PickupForm() {
 
     setLoading(true);
 
+    setSubmitError(null);
     try {
-      // Find or create customer
-      let customerId: string | undefined;
-      try {
-        const res = await listCustomers({ search: phone });
-        const match = res.data.find((c) => c.phone === phone);
-        if (match) {
-          customerId = match.id;
-        } else {
-          const created = await createCustomer({ name, phone, address });
-          customerId = created.id;
-        }
-      } catch {
-        // Fallback
-      }
-
-      if (customerId) {
-        await createPickup({
-          customerId,
-          pickupAddress: address,
-          scheduledDate: date,
-          timeSlot,
-          notes,
-        });
-      }
+      await requestPickup({ name, phone, address, scheduledDate: date, timeSlot, notes: notes || undefined });
+      setSubmitted(true);
     } catch {
-      // Offline fallback
+      setSubmitError("We couldn't send your request. Please try again, or call or WhatsApp us.");
     } finally {
       setLoading(false);
-      setSubmitted(true);
     }
   }
 
@@ -316,12 +305,18 @@ function PickupForm() {
         />
       </div>
 
+      {submitError && (
+        <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-center text-xs text-rose-800">
+          {submitError}
+        </div>
+      )}
+
       <button
         type="submit"
         disabled={loading}
         className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center gap-2"
       >
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Request Free Pickup'}
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Request Pickup'}
       </button>
     </form>
   );

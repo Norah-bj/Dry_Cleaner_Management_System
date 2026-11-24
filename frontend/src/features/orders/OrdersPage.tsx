@@ -1,13 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, Plus, Search, RefreshCw, AlertCircle } from 'lucide-react';
+import { ClipboardList, Plus, Search, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { LoadError } from '../../components/ui/LoadError';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { StatusBadge } from '../../components/orders/StatusBadge';
 import { ServiceTierBadge } from '../../components/orders/ServiceTierBadge';
-import { mockStore } from '../../mock/mock-store';
+import { errorMessage } from '../../lib/error-message';
 import { listOrders, type ApiOrder } from '../../services/orders';
 import type { LaundryStage, Order, PaymentStatus, ServiceTier } from '../../types/order';
 import { cn } from '../../lib/cn';
@@ -88,8 +89,8 @@ export function OrdersPage() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All');
   const [search, setSearch] = useState('');
-  const [orders, setOrders] = useState<Order[]>(() => mockStore.getOrders());
-  const [loading, setLoading] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async () => {
@@ -97,23 +98,16 @@ export function OrdersPage() {
     setError(null);
     try {
       const res = await listOrders({ search: search || undefined });
-      if (res && res.data) {
-        setOrders(res.data.map(mapApiOrderToOrder));
-      }
-    } catch {
-      // Fall back to mock store if backend is not currently connected
-      setOrders(mockStore.getOrders());
+      setOrders(res.data.map(mapApiOrderToOrder));
+    } catch (err) {
+      setError(errorMessage(err, 'load orders'));
     } finally {
       setLoading(false);
     }
   }, [search]);
 
   useEffect(() => {
-    fetchOrders();
-    const unsub = mockStore.subscribe(() => {
-      // Keep mock sync as live listener
-    });
-    return unsub;
+    void fetchOrders();
   }, [fetchOrders]);
 
   const filteredOrders = orders.filter((order) => {
@@ -159,9 +153,8 @@ export function OrdersPage() {
       />
 
       {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
-          <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
-          <span>{error}</span>
+        <div className="mb-4">
+          <LoadError message={error} onRetry={() => void fetchOrders()} />
         </div>
       )}
 
@@ -203,6 +196,10 @@ export function OrdersPage() {
           <div className="p-8 text-center text-xs text-text-muted">
             <RefreshCw className="mx-auto mb-2 h-5 w-5 animate-spin text-primary" />
             Loading orders...
+          </div>
+        ) : error && orders.length === 0 ? (
+          <div className="p-6 text-center text-xs text-text-muted">
+            Orders will appear here once the server can be reached.
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="p-6">

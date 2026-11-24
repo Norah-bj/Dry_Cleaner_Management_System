@@ -132,6 +132,27 @@ export function createPickup(input: CreatePickupInput): Promise<ApiPickup> {
   });
 }
 
+export interface PublicPickupRequestInput {
+  name: string;
+  phone: string;
+  address: string;
+  scheduledDate: string;
+  timeSlot?: string;
+  notes?: string;
+}
+
+/**
+ * Customer-facing pickup request (no login). The server finds the customer
+ * by phone or registers them, then creates the pickup.
+ */
+export function requestPickup(input: PublicPickupRequestInput): Promise<{ pickupNumber: string }> {
+  return apiFetch<{ pickupNumber: string }>('/pickups/request', {
+    method: 'POST',
+    body: input,
+    auth: false,
+  });
+}
+
 export function updatePickup(
   id: string,
   input: UpdatePickupInput,

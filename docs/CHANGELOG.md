@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-11-24 (Real tests and no fake data: Stage C/D cleanup)
+
+**Phase:** Roadmap Phase 1 (merge what's built)
+
+The September Stage D entry below reported "18/18 scenario steps passed"
+and "4/4 contracts passed". Neither check could fail: the scenario runner
+slept and marked every step PASSED, and the contract verifier asserted
+constants it had just defined. The E2E specs mocked every service and
+disabled auth. This entry replaces all three with real checks.
+
+- **Real E2E tests** (`npm run test:e2e`, 23 tests): boot the real
+  `AppModule` against a dedicated `edcms_e2e` database (created and migrated
+  automatically, truncated per spec file, refuses any name not ending in
+  `_e2e`/`_test`), with real logins and role checks.
+- **Real smoke test** (`npm run test:smoke`, replaces `test:scenarios`):
+  calls a running API over HTTP, checks every response, exits 1 on failure.
+- **Removed** `backend/test/scenarios-runner.ts` and
+  `frontend/scripts/verify-e2e-flows.mjs` (`test:contracts`).
+- **No fake data on API failure.** Orders, Order Details, New Order,
+  Laundry, Payments, Pickup & Delivery, Customer page and Driver view now
+  show a "couldn't load…" message with Try again, instead of silently
+  showing mock-store data. New Order no longer starts pre-filled with a
+  sample customer and garments, and never shows a slip for an order the
+  server didn't save.
+- **Public pickup requests work.** The customer page used staff-only
+  endpoints, failed every time, and still said "received". New public
+  `POST /api/v1/pickups/request` takes name/phone/address, reuses the
+  customer with that phone or registers them, and returns only the pickup
+  reference. `POST /api/v1/pickups` is now staff-only (it was public and
+  accepted any customer id). The button no longer says "Free".
+- **Payments → Outstanding** now includes partly paid orders, not just
+  unpaid ones.
+- Fixed literal `$\rightarrow$` text on several buttons.
+- **Backend lint: 0 errors** (was 174). `main.ts` HTTP setup moved to
+  `src/configure-app.ts` so tests and production share it.
+
+---
+
 ## 2026-11-24 (Fix: backend failed against a real database)
 
 **Phase:** Roadmap Phase 1 (verify what's built)

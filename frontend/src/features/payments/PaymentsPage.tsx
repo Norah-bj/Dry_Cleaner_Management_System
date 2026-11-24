@@ -4,7 +4,8 @@ import { AlertCircle, Plus, Search, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { mockStore } from '../../mock/mock-store';
+import { LoadError } from '../../components/ui/LoadError';
+import { errorMessage } from '../../lib/error-message';
 import { getPaymentsSummary, listPayments } from '../../services/payments';
 import { listOrders } from '../../services/orders';
 import { cn } from '../../lib/cn';
@@ -29,9 +30,9 @@ export function PaymentsPage() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<(typeof TABS)[number]>('Overview');
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Live state from API or mock fallback
   const [summary, setSummary] = useState({
     todayTotal: 0,
     methodBreakdown: { CASH: 0, MOMO: 0, BANK_TRANSFER: 0, CARD: 0 },
@@ -67,12 +68,16 @@ export function PaymentsPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const [sumRes, txRes, ordersRes] = await Promise.all([
+      // Outstanding = unpaid AND partly paid orders (both still have a balance).
+      const [sumRes, txRes, unpaidRes, partialRes] = await Promise.all([
         getPaymentsSummary(),
         listPayments({ search: search || undefined }),
-        listOrders({ paymentStatus: 'UNPAID' }),
+        listOrders({ paymentStatus: 'UNPAID', perPage: 100 }),
+        listOrders({ paymentStatus: 'PARTIALLY_PAID', perPage: 100 }),
       ]);
+      const ordersRes = { data: [...unpaidRes.data, ...partialRes.data] };
 
       if (sumRes) {
         setSummary({
@@ -114,57 +119,15 @@ export function PaymentsPage() {
             })),
         );
       }
-    } catch {
-      // Mock store fallback
-      const allOrders = mockStore.getOrders();
-      const allTx = allOrders
-        .flatMap((o) =>
-          o.payments.map((p) => ({
-            id: p.id,
-            receiptNumber: p.receiptNumber,
-            amount: p.amount,
-            method: p.method,
-            orderId: o.id,
-            orderNumber: o.orderNumber,
-            customerName: o.customerName,
-            receivedBy: p.receivedBy,
-            receivedAt: p.receivedAt,
-          })),
-        )
-        .sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
-
-      setTransactions(allTx);
-
-      const todayStr = new Date().toISOString().split('T')[0];
-      const todayTxns = allTx.filter((t) => t.receivedAt.startsWith(todayStr));
-      const todayTotal = todayTxns.reduce((a, b) => a + b.amount, 0);
-
-      const outOrders = allOrders
-        .filter((o) => o.balanceDue > 0)
-        .map((o) => ({
-          id: o.id,
-          orderNumber: o.orderNumber,
-          customerName: o.customerName,
-          customerPhone: o.customerPhone,
-          total: o.totalAmount,
-          amountPaid: o.amountPaid,
-          balance: o.balanceDue,
-          createdAt: o.createdAt,
-        }));
-
-      setOutstandingOrders(outOrders);
-      setSummary({
-        todayTotal,
-        methodBreakdown: { CASH: todayTotal, MOMO: 0, BANK_TRANSFER: 0, CARD: 0 },
-        totalOutstanding: outOrders.reduce((a, b) => a + b.balance, 0),
-      });
+    } catch (err) {
+      setError(errorMessage(err, 'load payments'));
     } finally {
       setLoading(false);
     }
   }, [search]);
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, [fetchData]);
 
   const filteredTxns = transactions.filter((t) => {
@@ -192,6 +155,8 @@ export function PaymentsPage() {
           </div>
         }
       />
+
+      {error && <LoadError message={error} onRetry={() => void fetchData()} />}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -285,7 +250,7 @@ export function PaymentsPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-text">Recent Transactions</h2>
               <Button variant="ghost" size="sm" onClick={() => setTab('Transactions')}>
-                View All $\rightarrow$
+                View All →
               </Button>
             </div>
             <div className="space-y-2">

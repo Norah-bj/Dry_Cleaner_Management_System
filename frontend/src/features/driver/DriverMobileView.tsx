@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, MapPin, Package, Phone, Truck, RefreshCw } from 'lucide-react';
-import { pickupDeliveryStore } from '../../mock/mock-pickup-delivery-store';
+import { errorMessage } from '../../lib/error-message';
 import { RunBadge } from '../../components/pickups/RunBadge';
 import { getDriverTasks, updatePickup, updateDelivery, type ApiPickup, type ApiDelivery } from '../../services/logistics';
 
@@ -14,11 +14,13 @@ export function DriverMobileView() {
   const [driverName, setDriverName] = useState('Driver');
   const [pickups, setPickups] = useState<ApiPickup[]>([]);
   const [deliveries, setDeliveries] = useState<ApiDelivery[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchTasks = useCallback(async () => {
     if (!driverId) return;
     setLoading(true);
+    setError(null);
     try {
       const res = await getDriverTasks(driverId);
       if (res) {
@@ -30,50 +32,15 @@ export function DriverMobileView() {
           setDriverName(res.deliveries[0].assignedDriverName);
         }
       }
-    } catch {
-      // Mock store fallback
-      const allP = pickupDeliveryStore.getPickups().filter((p) => p.driverId === driverId);
-      const allD = pickupDeliveryStore.getDeliveries().filter((d) => d.driverId === driverId);
-      setPickups(
-        allP.map((p) => ({
-          id: p.id,
-          pickupNumber: p.requestNumber,
-          customerId: p.customerId,
-          customer: { id: p.customerId, name: p.customerName, phone: p.customerPhone, address: p.address },
-          pickupAddress: p.address,
-          scheduledDate: p.preferredDate,
-          timeSlot: `${p.preferredTimeFrom} - ${p.preferredTimeTo}`,
-          status: p.status as any,
-          assignedDriverId: p.driverId,
-          assignedDriverName: p.driverName,
-          notes: p.notes,
-          createdAt: p.createdAt,
-        })),
-      );
-      setDeliveries(
-        allD.map((d) => ({
-          id: d.id,
-          deliveryNumber: d.requestNumber,
-          orderId: d.orderId,
-          order: { id: d.orderId, orderNumber: d.orderNumber, customer: { name: d.customerName, phone: d.customerPhone } },
-          deliveryAddress: d.address,
-          scheduledDate: d.scheduledDate,
-          timeSlot: `${d.scheduledTimeFrom} - ${d.scheduledTimeTo}`,
-          amountCollectable: d.amountCollectable,
-          status: d.status as any,
-          assignedDriverId: d.driverId,
-          assignedDriverName: d.driverName,
-          notes: d.notes,
-          createdAt: d.createdAt,
-        })),
-      );
+    } catch (err) {
+      setError(errorMessage(err, 'load your jobs'));
     } finally {
       setLoading(false);
     }
   }, [driverId]);
 
   useEffect(() => {
-    fetchTasks();
+    void fetchTasks();
   }, [fetchTasks]);
 
   const activePickups = pickups.filter((p) => !['PICKED_UP', 'CANCELLED'].includes(p.status));
@@ -88,12 +55,12 @@ export function DriverMobileView() {
     if (currentStatus === 'ON_THE_WAY' || currentStatus === 'DRIVER_ASSIGNED' || currentStatus === 'SCHEDULED') {
       next = currentStatus === 'ON_THE_WAY' ? 'PICKED_UP' : 'ON_THE_WAY';
     }
+    setError(null);
     try {
       await updatePickup(pickupId, { status: next });
       await fetchTasks();
-    } catch {
-      pickupDeliveryStore.updatePickupStatus(pickupId, next as any);
-      fetchTasks();
+    } catch (err) {
+      setError(errorMessage(err, 'update this pickup'));
     }
   };
 
@@ -102,12 +69,12 @@ export function DriverMobileView() {
     if (currentStatus === 'OUT_FOR_DELIVERY' || currentStatus === 'DRIVER_ASSIGNED' || currentStatus === 'SCHEDULED') {
       next = currentStatus === 'OUT_FOR_DELIVERY' ? 'DELIVERED' : 'OUT_FOR_DELIVERY';
     }
+    setError(null);
     try {
       await updateDelivery(deliveryId, { status: next });
       await fetchTasks();
-    } catch {
-      pickupDeliveryStore.updateDeliveryStatus(deliveryId, next as any);
-      fetchTasks();
+    } catch (err) {
+      setError(errorMessage(err, 'update this delivery'));
     }
   };
 
@@ -152,6 +119,12 @@ export function DriverMobileView() {
       </div>
 
       <div className="px-4 py-5 space-y-6">
+        {error && (
+          <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+            {error}
+          </div>
+        )}
+
         {/* ── Active Pickups ── */}
         {activePickups.length > 0 && (
           <section>
@@ -200,7 +173,7 @@ export function DriverMobileView() {
                         </>
                       ) : (
                         <>
-                          <Truck className="h-4 w-4" /> I'm On The Way $\rightarrow$
+                          <Truck className="h-4 w-4" /> I'm On The Way →
                         </>
                       )}
                     </button>
@@ -262,7 +235,7 @@ export function DriverMobileView() {
                         </>
                       ) : (
                         <>
-                          <Truck className="h-4 w-4" /> Out for Delivery $\rightarrow$
+                          <Truck className="h-4 w-4" /> Out for Delivery →
                         </>
                       )}
                     </button>
