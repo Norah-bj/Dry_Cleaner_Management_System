@@ -99,6 +99,9 @@ additions — they require a separate scoping decision.
 
 ## Open questions for the client (do not assume answers)
 
+A plain-language version to send to the owner, with tables for the price
+list, hours and staff, is in [CLIENT-QUESTIONS.md](CLIENT-QUESTIONS.md).
+
 1. **EBM:** what EBM device/software is in use? Does it expose any
    integration point (API, file export, printer protocol)? How are receipts
    currently generated for tax purposes?

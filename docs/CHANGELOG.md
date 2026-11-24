@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-24 (Client question sheet)
+
+Added `docs/requirements/CLIENT-QUESTIONS.md`: the open questions from
+REQUIREMENTS.md rewritten in plain language for the owner, with fill-in
+tables for prices per service and tier, opening hours, delivery windows and
+staff logins. It also asks about material charges, turnaround times,
+existing customer records and drivers' phones, which later phases need. No
+business rules changed: answers go into BUSINESS-RULES.md as they arrive.
+
+---
+
 ## 2026-09-14 (Stage B — Backend Modules: Orders, Laundry, Payments, Logistics)
 
 **Phase:** 1 — Backend Modular Monolith (Orders, Laundry, Payments, Logistics — Stage B)
