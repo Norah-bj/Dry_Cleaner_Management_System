@@ -35,17 +35,22 @@ API call fails.
 Goal: `main` holds all the work that exists, and the client questions
 that block later phases are in progress.
 
+- [ ] Run the backend against a fresh database with a real login and fix
+      what breaks. Done in PR #26: the API didn't boot, and orders,
+      status changes and payments returned 500. Waiting for merge.
 - [ ] Open a PR for `feat/e2e-testing` (Stages C and D) and merge it.
+      Opened as **draft** PR #27: lint fails, the E2E specs are mocked,
+      and the scenario runner can't fail. Owner decisions are listed in
+      the PR.
 - [ ] Run the backend unit, E2E and scenario tests and the frontend
-      contract check against a fresh database, and record the results
-      in the PR.
+      contract check, and record the results in the PR. Done 2026-11-24;
+      results are in #26 and #27.
 - [ ] Send the owner the open questions from `REQUIREMENTS.md` in plain
-      language: price list per service and tier, active payment methods,
-      operating hours, discount/cancellation/refund policy, delivery
-      area, EBM device/software, WhatsApp Business account.
+      language. Sheet in PR #28 (`docs/requirements/CLIENT-QUESTIONS.md`),
+      ready to send once merged.
 - [ ] Record each answer in `BUSINESS-RULES.md` (with source and date)
       as it arrives.
-- [ ] Update `CLAUDE.md` "Current phase" and `README.md` status.
+- [ ] Update `CLAUDE.md` "Current phase" and `README.md` status (this PR).
 
 Depends on: nothing. Phase 2 and later need the client's answers.
 
