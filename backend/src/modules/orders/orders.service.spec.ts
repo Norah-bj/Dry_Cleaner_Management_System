@@ -6,21 +6,22 @@ import {
   PaymentStatus,
   ServiceTier,
 } from './entities/order.entity';
-import { Customer } from '../customers/entities/customer.entity';
 
 describe('OrdersService', () => {
   let service: OrdersService;
-  let ordersRepo: any;
-  let orderItemsRepo: any;
-  let orderMaterialsRepo: any;
-  let statusHistoryRepo: any;
-  let customersRepo: any;
-  let dataSource: any;
+  let ordersRepo: Record<string, jest.Mock>;
+  let orderItemsRepo: Record<string, jest.Mock>;
+  let orderMaterialsRepo: Record<string, jest.Mock>;
+  let statusHistoryRepo: Record<string, jest.Mock>;
+  let customersRepo: Record<string, jest.Mock>;
+  let dataSource: Record<string, jest.Mock>;
 
   beforeEach(() => {
     ordersRepo = {
-      create: jest.fn((val) => val),
-      save: jest.fn((val) => Promise.resolve({ id: 'order-uuid-1', ...val })),
+      create: jest.fn((val: unknown) => val),
+      save: jest.fn((val: object) =>
+        Promise.resolve({ id: 'order-uuid-1', ...val }),
+      ),
       findOne: jest.fn(),
       createQueryBuilder: jest.fn(),
       count: jest.fn().mockResolvedValue(0),

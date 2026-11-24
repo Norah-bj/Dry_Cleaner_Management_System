@@ -40,9 +40,9 @@ export class OrdersService {
   private async generateOrderNumber(): Promise<string> {
     const year = new Date().getFullYear();
     try {
-      const result = (await this.dataSource.query(
+      const result = await this.dataSource.query<{ num: string }[]>(
         `SELECT nextval('order_number_seq') AS num`,
-      )) as Array<{ num: string | number }>;
+      );
       const seq = String(result[0].num).padStart(5, '0');
       return `ORD-${year}-${seq}`;
     } catch {

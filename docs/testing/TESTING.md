@@ -39,6 +39,14 @@ A feature is not done because the UI renders. It's done when:
       architecture/API/business-rule doc affected)
 - [ ] Commit created with a clear message
 
+## A test must be able to fail
+
+A check that passes no matter what the code does is worse than no check,
+because it gives false confidence. Before relying on a new test, break the
+behaviour it covers once and watch it fail. Tests that replace the code
+under test with mocks are unit tests, not E2E tests, and must not be
+labelled E2E. How to run every check: [E2E-TESTING-GUIDE.md](E2E-TESTING-GUIDE.md).
+
 ## Rule for AI agents
 
 Never report a test as passing, a migration as applied, or an endpoint as

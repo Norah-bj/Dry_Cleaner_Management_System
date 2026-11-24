@@ -31,9 +31,9 @@ export class PaymentsService {
   private async generateReceiptNumber(): Promise<string> {
     const year = new Date().getFullYear();
     try {
-      const result = (await this.dataSource.query(
+      const result = await this.dataSource.query<{ num: string }[]>(
         `SELECT nextval('receipt_number_seq') AS num`,
-      )) as Array<{ num: string | number }>;
+      );
       const seq = String(result[0].num).padStart(5, '0');
       return `RCP-${year}-${seq}`;
     } catch {
@@ -45,9 +45,9 @@ export class PaymentsService {
   private async generateInvoiceNumber(): Promise<string> {
     const year = new Date().getFullYear();
     try {
-      const result = (await this.dataSource.query(
+      const result = await this.dataSource.query<{ num: string }[]>(
         `SELECT nextval('invoice_number_seq') AS num`,
-      )) as Array<{ num: string | number }>;
+      );
       const seq = String(result[0].num).padStart(5, '0');
       return `INV-${year}-${seq}`;
     } catch {

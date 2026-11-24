@@ -1,33 +1,28 @@
 import { NotFoundException } from '@nestjs/common';
 import { LogisticsService } from './logistics.service';
-import { PickupRequest, PickupStatus } from './entities/pickup-request.entity';
-import {
-  DeliveryRequest,
-  DeliveryStatus,
-} from './entities/delivery-request.entity';
-import { Customer } from '../customers/entities/customer.entity';
-import { Order } from '../orders/entities/order.entity';
+import { PickupStatus } from './entities/pickup-request.entity';
+import { DeliveryStatus } from './entities/delivery-request.entity';
 
 describe('LogisticsService', () => {
   let service: LogisticsService;
-  let pickupsRepo: any;
-  let deliveriesRepo: any;
-  let customersRepo: any;
-  let ordersRepo: any;
-  let dataSource: any;
+  let pickupsRepo: Record<string, jest.Mock>;
+  let deliveriesRepo: Record<string, jest.Mock>;
+  let customersRepo: Record<string, jest.Mock>;
+  let ordersRepo: Record<string, jest.Mock>;
+  let dataSource: Record<string, jest.Mock>;
 
   beforeEach(() => {
     pickupsRepo = {
-      create: jest.fn((val) => val),
-      save: jest.fn((val) => Promise.resolve({ id: 'pkp-1', ...val })),
+      create: jest.fn((val: unknown) => val),
+      save: jest.fn((val: object) => Promise.resolve({ id: 'pkp-1', ...val })),
       findOne: jest.fn(),
       find: jest.fn(),
       createQueryBuilder: jest.fn(),
       count: jest.fn().mockResolvedValue(0),
     };
     deliveriesRepo = {
-      create: jest.fn((val) => val),
-      save: jest.fn((val) => Promise.resolve({ id: 'dlv-1', ...val })),
+      create: jest.fn((val: unknown) => val),
+      save: jest.fn((val: object) => Promise.resolve({ id: 'dlv-1', ...val })),
       findOne: jest.fn(),
       find: jest.fn(),
       createQueryBuilder: jest.fn(),
@@ -49,6 +44,7 @@ describe('LogisticsService', () => {
       customersRepo,
       ordersRepo,
       dataSource,
+      { create: jest.fn() } as never,
     );
   });
 

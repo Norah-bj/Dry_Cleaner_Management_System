@@ -7,7 +7,6 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test:contracts": "node scripts/verify-e2e-flows.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

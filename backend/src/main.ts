@@ -1,27 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
-import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AppConfig } from './config/configuration';
+import { configureApp } from './configure-app';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const configService = app.get(ConfigService);
-  const appConfig = configService.get<AppConfig>('app');
+  const appConfig = app.get(ConfigService).get<AppConfig>('app');
 
-  app.setGlobalPrefix('api/v1', { exclude: ['health'] });
-  app.enableCors({
-    origin: appConfig?.corsOrigins,
-    credentials: true,
-  });
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  configureApp(app);
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('EDCMS API')

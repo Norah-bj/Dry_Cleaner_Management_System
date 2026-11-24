@@ -3,7 +3,7 @@ import { Order, OrderStatus } from '../orders/entities/order.entity';
 
 describe('LaundryService', () => {
   let service: LaundryService;
-  let ordersRepo: any;
+  let ordersRepo: Record<string, jest.Mock>;
 
   beforeEach(() => {
     ordersRepo = {
