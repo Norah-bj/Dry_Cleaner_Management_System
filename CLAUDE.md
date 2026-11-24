@@ -34,9 +34,9 @@ different frontend framework without an explicit decision recorded in
 
 ## Current phase
 
-**Phase 0 — Discovery.** No application code exists yet. The repository
-currently contains only documentation. Do not scaffold `frontend/` or
-`backend/` until the human owner explicitly asks to start Phase 1 (Foundation).
+**Building toward a working product.** The phases from the current code to
+go-live, and which one is active, are in [docs/ROADMAP.md](docs/ROADMAP.md).
+Work on the earliest unfinished phase unless the owner says otherwise.
 
 ## Core rules
 

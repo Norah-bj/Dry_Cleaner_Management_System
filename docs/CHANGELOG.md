@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-11 (Roadmap to a working product)
+
+Added `docs/ROADMAP.md`: seven phases from the current code to go-live
+(merge built work and get client answers → staff accounts and real
+configuration → inventory backend → remove mock data and harden →
+reports, receipts and notifications → deployment → handover). No scope
+added; every item comes from REQUIREMENTS.md, SECURITY.md or
+DEPLOYMENT.md. Updated `CLAUDE.md` "Current phase", which still said
+Phase 0 with no code, to point to the roadmap.
+
+---
+
 ## 2026-09-14 (Stage B — Backend Modules: Orders, Laundry, Payments, Logistics)
 
 **Phase:** 1 — Backend Modular Monolith (Orders, Laundry, Payments, Logistics — Stage B)
