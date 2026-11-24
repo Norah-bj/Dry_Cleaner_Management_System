@@ -2,12 +2,12 @@
 
 ## 2026-11-24 (Client question sheet)
 
-Added `docs/requirements/CLIENT-QUESTIONS.md`: the open questions from
-REQUIREMENTS.md rewritten in plain language for the owner, with fill-in
-tables for prices per service and tier, opening hours, delivery windows and
-staff logins. It also asks about material charges, turnaround times,
-existing customer records and drivers' phones, which later phases need. No
-business rules changed: answers go into BUSINESS-RULES.md as they arrive.
+Added `docs/requirements/CLIENT-QUESTIONS.md`: the open questions the
+system can't answer by itself, in plain language for the owner: EBM,
+cancellations/refunds/damage/uncollected clothes, delivery area and fees,
+drivers' phones, customer messages/WhatsApp, and existing records. Prices,
+payment methods, hours, time windows and staff are not asked: the owner
+enters them in Settings (Phase 2, PR #29). No business rules changed.
 
 ---
 

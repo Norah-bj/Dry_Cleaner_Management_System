@@ -99,8 +99,10 @@ additions — they require a separate scoping decision.
 
 ## Open questions for the client (do not assume answers)
 
-A plain-language version to send to the owner, with tables for the price
-list, hours and staff, is in [CLIENT-QUESTIONS.md](CLIENT-QUESTIONS.md).
+Prices, payment methods, operating hours and time windows (questions 2–4)
+are entered by the owner in Settings (roadmap Phase 2, BUSINESS-RULES #10),
+so they're no longer blocking. The remaining questions, in plain language
+for the owner, are in [CLIENT-QUESTIONS.md](CLIENT-QUESTIONS.md).
 
 1. **EBM:** what EBM device/software is in use? Does it expose any
    integration point (API, file export, printer protocol)? How are receipts
