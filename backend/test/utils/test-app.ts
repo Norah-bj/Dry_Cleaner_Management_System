@@ -62,3 +62,50 @@ export async function createUserAndLogin(
 export function auth(token: string): { Authorization: string } {
   return { Authorization: `Bearer ${token}` };
 }
+
+/**
+ * Test-only shop setup, done through the real Settings and price-list
+ * endpoints the way the owner would. The numbers are TEST FIXTURES, not
+ * the client's prices.
+ */
+export const TEST_SLOTS = ['08:00-10:00', '14:00-16:00'];
+
+export interface TestShop {
+  shirtId: string; // Standard 1000, Express 1500, no Same-Day price
+  suitId: string; // Standard 3000
+  blanketId: string; // Standard 4000
+}
+
+export async function configureTestShop(
+  app: INestApplication<App>,
+  ownerToken: string,
+): Promise<TestShop> {
+  const server = app.getHttpServer();
+  await request(server)
+    .patch('/api/v1/settings')
+    .set(auth(ownerToken))
+    .send({
+      enabledPaymentMethods: ['CASH', 'MOMO'],
+      materialCharges: { HANGER: 100, COVER: 300 },
+      timeSlots: TEST_SLOTS,
+    })
+    .expect(200);
+
+  const add = async (body: Record<string, unknown>) => {
+    const res = await request(server)
+      .post('/api/v1/catalog/items')
+      .set(auth(ownerToken))
+      .send(body)
+      .expect(201);
+    return (res.body as { id: string }).id;
+  };
+  return {
+    shirtId: await add({
+      name: 'Shirt',
+      priceStandard: 1000,
+      priceExpress: 1500,
+    }),
+    suitId: await add({ name: 'Suit', priceStandard: 3000 }),
+    blanketId: await add({ name: 'Blanket', priceStandard: 4000 }),
+  };
+}

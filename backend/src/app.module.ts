@@ -11,6 +11,8 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { LaundryModule } from './modules/laundry/laundry.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { LogisticsModule } from './modules/logistics/logistics.module';
+import { SettingsModule } from './modules/settings/settings.module';
+import { CatalogModule } from './modules/catalog/catalog.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -29,6 +31,8 @@ import { RolesGuard } from './common/guards/roles.guard';
     LaundryModule,
     PaymentsModule,
     LogisticsModule,
+    SettingsModule,
+    CatalogModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

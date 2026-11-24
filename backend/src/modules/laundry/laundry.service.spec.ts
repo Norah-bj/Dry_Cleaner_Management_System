@@ -9,7 +9,7 @@ describe('LaundryService', () => {
     ordersRepo = {
       createQueryBuilder: jest.fn(),
     };
-    service = new LaundryService(ordersRepo);
+    service = new LaundryService(ordersRepo as never);
   });
 
   describe('getBoard', () => {

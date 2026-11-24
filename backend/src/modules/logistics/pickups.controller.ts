@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { LogisticsService } from './logistics.service';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { CreatePickupDto } from './dto/create-pickup.dto';
 import { UpdatePickupDto } from './dto/update-pickup.dto';
 import { PublicPickupRequestDto } from './dto/public-pickup-request.dto';
@@ -71,7 +73,8 @@ export class PickupsController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updatePickupDto: UpdatePickupDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.logisticsService.updatePickup(id, updatePickupDto);
+    return this.logisticsService.updatePickup(id, updatePickupDto, user);
   }
 }

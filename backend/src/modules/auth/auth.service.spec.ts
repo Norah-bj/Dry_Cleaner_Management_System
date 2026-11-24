@@ -15,6 +15,7 @@ describe('AuthService', () => {
     activeUser = {
       id: 'user-1',
       email: 'staff@ebenezer.rw',
+      phone: null,
       passwordHash: await argon2.hash('correct-password'),
       fullName: 'Test Staff',
       role: UserRole.RECEPTIONIST,

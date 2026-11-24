@@ -94,6 +94,11 @@ async function main(): Promise<void> {
   let orderId = '';
   let orderNumber = '';
   let total = 0;
+  // Read from the shop's own Settings and price list - never assumed.
+  let itemId = '';
+  let itemPrice = 0;
+  let method = '';
+  let slot: string | undefined;
 
   await step('API and database are up', async () => {
     const health = await call('GET', `${BASE}/health`, 200, undefined, false);
@@ -119,6 +124,30 @@ async function main(): Promise<void> {
     token = login.accessToken as string;
   });
 
+  await step('the shop is set up (priced item, payment method)', async () => {
+    const items = (await call(
+      'GET',
+      `${API}/catalog/items`,
+      200,
+    )) as unknown as Json[];
+    const priced = items.find((i) => i.priceStandard !== null);
+    check(
+      priced,
+      'no service has a Standard price yet - add one in Settings → Services & Prices',
+    );
+    itemId = String(priced?.id);
+    itemPrice = Number(priced?.priceStandard);
+
+    const settings = await call('GET', `${API}/settings`, 200);
+    const methods = settings.enabledPaymentMethods as string[];
+    check(
+      methods.length > 0,
+      'no payment method enabled - enable one in Settings → Payments & Charges',
+    );
+    method = methods[0];
+    slot = (settings.timeSlots as string[])[0];
+  });
+
   await step('register a customer', async () => {
     const customer = await call('POST', `${API}/customers`, 201, {
       name: `SMOKE TEST ${stamp}`,
@@ -129,12 +158,12 @@ async function main(): Promise<void> {
     check(customerId, 'customer has no id');
   });
 
-  await step('create an order with garments and materials', async () => {
+  await step('create an order priced from the price list', async () => {
     const order = await call('POST', `${API}/orders`, 201, {
       customerId,
       serviceTier: 'STANDARD',
-      items: [{ garmentName: 'Smoke shirt', quantity: 2, unitPrice: 1000 }],
-      materials: [{ materialType: 'HANGER', quantity: 2, unitCharge: 100 }],
+      items: [{ serviceItemId: itemId, quantity: 2 }],
+      materials: [{ materialType: 'BAG', quantity: 1, customerProvided: true }],
     });
     orderId = order.id as string;
     orderNumber = order.orderNumber as string;
@@ -143,7 +172,10 @@ async function main(): Promise<void> {
       /^ORD-\d{4}-\d{5}$/.test(orderNumber),
       `bad order number ${orderNumber}`,
     );
-    check(total === 2200, `expected total 2200, got ${total}`);
+    check(
+      total === itemPrice * 2,
+      `expected total ${itemPrice * 2}, got ${total}`,
+    );
     check(order.status === 'RECEIVED', `status is ${String(order.status)}`);
   });
 
@@ -169,14 +201,16 @@ async function main(): Promise<void> {
     );
   });
 
+  const firstPayment = () => Math.floor(total / 2);
+
   await step('partial payment leaves a balance', async () => {
     await call('POST', `${API}/orders/${orderId}/payments`, 201, {
-      amount: 1000,
-      paymentMethod: 'CASH',
+      amount: firstPayment(),
+      paymentMethod: method,
     });
     const order = await call('GET', `${API}/orders/${orderId}`, 200);
     check(
-      Number(order.balance) === total - 1000,
+      Number(order.balance) === total - firstPayment(),
       `balance is ${String(order.balance)}`,
     );
     check(
@@ -187,8 +221,8 @@ async function main(): Promise<void> {
 
   await step('final payment marks the order PAID', async () => {
     await call('POST', `${API}/orders/${orderId}/payments`, 201, {
-      amount: total - 1000,
-      paymentMethod: 'CASH',
+      amount: total - firstPayment(),
+      paymentMethod: method,
     });
     const order = await call('GET', `${API}/orders/${orderId}`, 200);
     check(Number(order.balance) === 0, `balance is ${String(order.balance)}`);
@@ -200,8 +234,8 @@ async function main(): Promise<void> {
 
   await step('a fully paid order refuses more payments', async () => {
     await call('POST', `${API}/orders/${orderId}/payments`, 400, {
-      amount: 100,
-      paymentMethod: 'CASH',
+      amount: 1,
+      paymentMethod: method,
     });
   });
 
@@ -226,7 +260,7 @@ async function main(): Promise<void> {
       scheduledDate: new Date(Date.now() + 86_400_000)
         .toISOString()
         .slice(0, 10),
-      timeSlot: '14:00-16:00',
+      timeSlot: slot,
     });
     check(/^PKP-/.test(String(pickup.pickupNumber)), 'bad pickup number');
   });
@@ -243,11 +277,26 @@ async function main(): Promise<void> {
         scheduledDate: new Date(Date.now() + 86_400_000)
           .toISOString()
           .slice(0, 10),
+        timeSlot: slot,
       },
       false,
     );
     check(/^PKP-/.test(String(res.pickupNumber)), 'bad pickup number');
     check(!('customer' in res), 'public response leaked the customer record');
+  });
+
+  await step('public tracking hides contact details', async () => {
+    const tracked = await call(
+      'GET',
+      `${API}/orders/track/${orderNumber}`,
+      200,
+      undefined,
+      false,
+    );
+    check(
+      !JSON.stringify(tracked).includes(`0780${stamp}`),
+      'tracking leaked the phone number',
+    );
   });
 
   await step('schedule a delivery for the order', async () => {
@@ -257,7 +306,7 @@ async function main(): Promise<void> {
       scheduledDate: new Date(Date.now() + 172_800_000)
         .toISOString()
         .slice(0, 10),
-      timeSlot: '10:00-12:00',
+      timeSlot: slot,
     });
     check(/^DLV-/.test(String(delivery.deliveryNumber)), 'bad delivery number');
   });

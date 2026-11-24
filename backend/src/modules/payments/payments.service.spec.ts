@@ -54,10 +54,15 @@ describe('PaymentsService', () => {
     };
 
     service = new PaymentsService(
-      paymentsRepo,
-      invoicesRepo,
-      ordersRepo,
-      dataSource,
+      paymentsRepo as never,
+      invoicesRepo as never,
+      ordersRepo as never,
+      dataSource as never,
+      {
+        get: jest.fn().mockResolvedValue({
+          enabledPaymentMethods: [PaymentMethod.CASH, PaymentMethod.MOMO],
+        }),
+      } as never,
     );
   });
 
