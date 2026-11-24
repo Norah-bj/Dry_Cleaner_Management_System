@@ -65,6 +65,10 @@ export class PaymentsService {
       const order = await manager.findOne(Order, {
         where: { id: orderId },
         lock: { mode: 'pessimistic_write' },
+        // Order has eager relations (customer, items, materials) that load via
+        // LEFT JOIN, and Postgres rejects FOR UPDATE on the nullable side of
+        // an outer join. Only the order's own money columns are needed here.
+        loadEagerRelations: false,
       });
 
       if (!order) {
