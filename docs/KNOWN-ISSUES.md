@@ -16,7 +16,8 @@ DB insert. There's no `POST /api/v1/users` endpoint or admin screen yet
 to add staff accounts. Deferred to the Employees module phase (priority
 #14 in `docs/design/DESIGN-SYSTEM.md`).
 
-Status: Planned
+Status: Resolved 2026-11-24 (Phase 2): `/api/v1/users` plus the Employees
+page. `npm run seed` is still used once, for the first Super Admin.
 
 ## #3 — No rate limiting or security headers yet
 
@@ -61,9 +62,24 @@ reports 0 errors.
 
 `POST /api/v1/pickups/request` and `GET /api/v1/orders/track/:orderNumber`
 are public by design (the customer page). Order numbers are sequential, so
-anyone can step through them. Tracking still returns the full order,
-including the customer's phone and address. Add rate limiting and trim the
-public tracking response to what a customer needs before go-live (roadmap
-Phase 4, KNOWN-ISSUES #3).
+anyone can step through them. Since Phase 2, tracking returns only status,
+totals, items and the customer's first name (no phone or address). Rate
+limiting is still missing (roadmap Phase 4, KNOWN-ISSUES #3).
+
+Status: Open (found 2026-11-24)
+
+## #7 — Dashboard numbers are placeholders
+
+The dashboard's stat cards (today's orders, revenue, etc.) still show 0.
+They aren't connected to real data yet. The setup checklist and the quick
+buttons on the dashboard are real. Planned with Reports (roadmap Phase 5).
+
+Status: Open (found 2026-11-24)
+
+## #8 — Inventory and Reports pages show sample data
+
+Both pages still read browser-only sample data. Since Phase 2 they carry a
+"Preview only" banner so nobody mistakes the numbers for real records.
+Inventory is roadmap Phase 3; Reports is Phase 5.
 
 Status: Open (found 2026-11-24)

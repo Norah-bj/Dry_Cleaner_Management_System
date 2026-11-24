@@ -61,4 +61,7 @@ npm run dev              # http://localhost:5173
 ```
 
 Open the frontend URL, sign in with the `ADMIN_EMAIL`/`ADMIN_PASSWORD`
-you seeded above.
+you seeded above, then follow the **setup checklist** on the dashboard:
+add your services and prices, payment methods, hours and time windows in
+Settings, and create staff logins under Employees. Nothing is pre-filled.
+How to test everything: [docs/testing/E2E-TESTING-GUIDE.md](docs/testing/E2E-TESTING-GUIDE.md).

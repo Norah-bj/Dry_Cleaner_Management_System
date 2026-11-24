@@ -49,6 +49,38 @@ POST   /api/v1/auth/refresh
 Sub-resources (`/orders/:id/payments`) are used when the action is scoped to
 a specific parent, rather than a generic action endpoint.
 
+## Implemented endpoints (as of Phase 2)
+
+Swagger at `/api/docs` is the full reference; this is the map. "Public" =
+no login. Every other endpoint needs a JWT; roles are listed where they
+are restricted.
+
+| Endpoint | Who | Notes |
+|---|---|---|
+| `POST /auth/login` | public | |
+| `GET/POST/PATCH /customers…` | staff (create/edit: owner, manager, receptionist, cashier) | |
+| `POST /orders` | owner, manager, receptionist, cashier | Lines send `serviceItemId` + `quantity`; **the server prices them** from the price list at the order's speed. Material charges come from Settings. A client-sent price is rejected (400). |
+| `PATCH /orders/:id` | owner, manager, receptionist | Discount follows the Settings discount policy. |
+| `PATCH /orders/:id/status` | staff | Logged with who and when. |
+| `GET /orders/track/:orderNumber` | public | Returns status, totals, balance, items and the customer's **first name only**. No phone or address. |
+| `POST /orders/:orderId/payments` | owner, manager, receptionist, cashier | Method must be enabled in Settings; amount may not exceed the balance. |
+| `GET /payments`, `GET /payments/summary` | staff | |
+| `POST /pickups` | owner, manager, receptionist | Staff scheduling for an existing customer. |
+| `POST /pickups/request` | public | Customer page: name/phone/address; server reuses or registers the customer; returns only the reference. |
+| `PATCH /pickups/:id`, `PATCH /deliveries/:id` | staff; drivers only on **their own** jobs and only `status`/`notes` | `assignedDriverId` must be an active driver login; the name is taken from the account. |
+| `POST /deliveries` | owner, manager, receptionist | |
+| `GET /drivers/me/tasks` | driver | The signed-in driver's jobs: no prices, totals or payment status (business rule #8). |
+| `GET /drivers/:driverId/tasks` | owner, manager, receptionist | Dispatcher view. |
+| `GET /settings` | staff | |
+| `PATCH /settings` | owner, manager | Partial update (one section at a time). |
+| `GET /settings/setup-status` | owner, manager | First-run checklist. |
+| `GET /settings/public` | public | Name, phone, WhatsApp, address, hours, time windows, turnaround. |
+| `GET /catalog/items` | staff | `?includeInactive=true` includes hidden items. |
+| `POST /catalog/items`, `PATCH /catalog/items/:id` | owner, manager | Items are hidden (`isActive: false`), never deleted. Duplicate name = 409. |
+| `GET /catalog/public` | public | Active price list. |
+| `GET /users`, `POST /users`, `PATCH /users/:id`, `POST /users/:id/reset-password` | owner, manager | Only a Super Admin can grant or change the Super Admin role. Nobody can deactivate themselves or change their own role; the last active Super Admin can't be removed. |
+| `GET /users/drivers` | owner, manager, receptionist, cashier | Active drivers, for assignment. |
+
 ## Every endpoint must have
 
 - Authentication (unless explicitly public, e.g. login).

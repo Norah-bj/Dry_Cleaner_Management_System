@@ -1,5 +1,60 @@
 # Changelog
 
+## 2026-11-24 (Phase 2: staff accounts and owner-configured settings)
+
+**Phase:** Roadmap Phase 2
+
+The owner now enters every client-owned value in Settings instead of it
+being hard-coded or waiting on answers. The system ships with none of them
+filled in, and the dashboard shows a setup checklist until they are
+(BUSINESS-RULES #10).
+
+- **Settings** (`/api/v1/settings`, Settings page): business details, shop
+  phone and WhatsApp, accepted payment methods, charge per material, discount
+  policy (off by default; owner picks roles), opening hours, pickup/delivery
+  time windows, turnaround text per speed. Public subset at
+  `/settings/public` for the customer page; `/settings/setup-status` drives
+  the dashboard checklist.
+- **Price list** (`/api/v1/catalog`, Settings → Services & Prices): items with
+  an optional price per speed. Hidden, never deleted.
+- **Server-side pricing**: order lines send `serviceItemId`; the server
+  applies the price for the order's speed and the material charges from
+  Settings. Client-sent prices are rejected. Name and price are copied
+  onto the order, so later price changes don't rewrite history
+  (BUSINESS-RULES #11).
+- **Payments**: only enabled methods accepted; no paying more than the
+  balance (#12).
+- **Discounts** follow the owner's policy, on create and on edit (#13).
+  Also fixes `PATCH /orders/:id` discount maths: decimal columns were
+  concatenated as text.
+- **Staff accounts** (`/api/v1/users`, Employees page): create, edit role and
+  phone, deactivate/reactivate, reset password. Only a Super Admin can grant
+  Super Admin; nobody can deactivate themselves; the last Super Admin can't
+  be removed. Email lookups are case-insensitive. Closes KNOWN-ISSUES #2.
+- **Drivers**: assignment must be a real driver login (name from the
+  account). Drivers sign in at `/driver` and see only their own jobs, without
+  prices (`GET /drivers/me/tasks`), and may only change status/notes on
+  their own jobs (#14). The driver task endpoint is no longer public.
+- **Pickup & Delivery page**: driver dropdown per job; working Schedule
+  Pickup and new Schedule Delivery forms (nothing in the UI could create a
+  delivery before).
+- **Time windows**: must be one of the Settings windows once any exist.
+  The invented `'Morning (08:00 - 12:00)'` default is removed (column now
+  nullable).
+- **Public tracking** returns only status, totals, items and the customer's
+  first name (no phone or address).
+- **Customer page**: shop phone, WhatsApp, hours and time windows from Settings
+  (was a fake `0788000000`).
+- **Navigation**: Employees and Settings visible to owner/manager only;
+  drivers are redirected to their job list.
+- Inventory and Reports (still sample data until Phases 3 and 5) now say
+  "Preview only". The dashboard quick buttons work. The dashboard stat
+  numbers are still placeholders (KNOWN-ISSUES #7).
+- Migration `1764000000000-SettingsCatalogStaff` (run, revert and re-run
+  tested on a database with existing orders).
+
+---
+
 ## 2026-11-24 (Real tests and no fake data: Stage C/D cleanup)
 
 **Phase:** Roadmap Phase 1 (merge what's built)

@@ -28,7 +28,8 @@ Run from `backend/` unless noted. You need PostgreSQL running and
   can never wipe your dev or production data.
 - Specs: `test/app.e2e-spec.ts` (health, login, roles),
   `test/orders-lifecycle.e2e-spec.ts`, `test/payments-invoicing.e2e-spec.ts`,
-  `test/logistics-driver.e2e-spec.ts`.
+  `test/logistics-driver.e2e-spec.ts`, `test/settings-staff.e2e-spec.ts`
+  (settings, price list, server-side pricing, discounts, staff accounts).
 
 ### Smoke test (`npm run test:smoke`)
 
@@ -36,6 +37,7 @@ Calls a running API over HTTP and checks every response. Exits with code 1
 on any failure, so it can gate a deployment.
 
 ```
+# needs at least one priced service and one enabled payment method in Settings
 # local server on the default port, using ADMIN_EMAIL / ADMIN_PASSWORD from .env
 npm run test:smoke
 
@@ -55,6 +57,7 @@ cd backend
 npm install
 npm run migration:run
 npm run seed            # first SUPER_ADMIN from ADMIN_EMAIL / ADMIN_PASSWORD
+                        # then sign in and follow the setup checklist (section 3A)
 npm run start:dev       # http://localhost:3000, Swagger at /api/docs
 
 # terminal 2
@@ -67,22 +70,63 @@ npm run dev             # http://localhost:5173
 
 Sign in with the seeded admin. If the backend is stopped, every page must
 show a red "couldn't load…" message with a **Try again** button. No page
-may ever show sample orders, payments or drivers.
+may ever show sample orders, payments or drivers. The only exceptions are
+Inventory and Reports, which are marked "Preview only" until Phases 3 and 5.
 
-1. **New order.** Orders → New Order. The form starts empty. Add a
-   customer, garments and materials, then confirm. The slip shows an order
-   number like `ORD-2026-00001`; open the order and check the totals match.
-2. **Laundry.** Laundry board → move the order a stage. Open the order:
-   the timeline shows the change.
-3. **Payments.** On the order, record part of the balance. Payments page:
-   the order appears under Outstanding with the remaining balance. Pay the
-   rest: it leaves Outstanding.
-4. **Pickup and delivery.** Pickup & Delivery shows pickups and deliveries
-   from the database. Advance one.
-5. **Customer page.** Open `/customer` in a private window (not signed in).
-   Track the order by its number. Submit a pickup request: you see a
-   confirmation only if the server saved it; the pickup then appears on
-   the staff Pickup & Delivery page.
-6. **Server down.** Stop the backend and reload each page: each shows the
-   red error message, and the customer page's pickup form says it couldn't
-   send the request.
+### A. First-run setup (do this first; it's what the owner will do)
+
+1. **Dashboard** shows "Finish setting up the shop" with a checklist.
+2. **Settings → Services & Prices**: add a few items, e.g. "Shirt" with a
+   Standard and an Express price, leaving Same Day empty. Edit one, then
+   Hide/Show it.
+3. **Settings → Payments & Charges**: tick the payment methods the shop
+   accepts. Set a charge for Hanger (0 is fine) and leave Bag empty. Leave
+   discounts off for now.
+4. **Settings → Hours & Time Windows**: set opening hours, add two time
+   windows (e.g. 08:00–10:00, 14:00–16:00) and turnaround text.
+5. **Settings → Business Details**: shop phone and WhatsApp number.
+6. **Employees**: add a Receptionist and a Driver, each with a starting
+   password. Back on the Dashboard, the checklist is gone or nearly done.
+
+### B. Daily work
+
+7. **New Order**: the item list shows your prices for the chosen speed.
+   Switch to Same Day: "Shirt" shows "no Same Day price" and Save is
+   blocked. Switch back, add Hanger (charged) and Bag (only "customer's
+   own" is allowed, at zero). The payment dropdown lists only the methods
+   you ticked. Save: the slip shows the server's order number and totals.
+8. Open the order: the totals match. Record part of the balance. Try paying
+   more than the balance: it's refused with a clear message.
+9. **Laundry**: move the order a stage; the order timeline shows it.
+10. **Pickup & Delivery → Schedule Pickup**: find the customer by phone,
+    pick a time window from your list, assign the driver.
+    **Schedule Delivery**: find the order by number. The card shows the
+    cash to collect.
+11. **Discounts**: in Settings turn discounts on for Receptionist. Sign in
+    as the receptionist: New Order now shows a Discount field. (With
+    discounts off, the field isn't shown and the API refuses one.)
+
+### C. Roles and the driver
+
+12. Sign in as the **receptionist**: Employees and Settings are not in the
+    menu.
+13. Sign in as the **driver** (on a phone if possible): you land on the
+    driver job list, which shows only that driver's jobs: name, phone,
+    address, time window and cash to collect, but no prices. Tap "I'm on
+    the way", then "Picked up".
+14. In **Employees**, deactivate the receptionist, then try to sign in as
+    them: refused. Reactivate and use "Password" to set a new one.
+
+### D. Customer page (`/customer`, private window, not signed in)
+
+15. The shop phone, WhatsApp button and opening hours come from Settings.
+16. Track the order by number: you see the status and balance, and only the
+    customer's first name.
+17. Request a pickup: the time window list is yours. On success you get a
+    confirmation, and the pickup appears on the staff Pickup & Delivery
+    page.
+
+### E. Server down
+
+18. Stop the backend and reload pages: each shows the red error message.
+    The customer page's pickup form says it couldn't send the request.
