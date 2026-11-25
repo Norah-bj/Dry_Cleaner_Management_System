@@ -80,6 +80,9 @@ are restricted.
 | `GET /catalog/public` | public | Active price list. |
 | `GET /users`, `POST /users`, `PATCH /users/:id`, `POST /users/:id/reset-password` | owner, manager | Only a Super Admin can grant or change the Super Admin role. Nobody can deactivate themselves or change their own role; the last active Super Admin can't be removed. |
 | `GET /users/drivers` | owner, manager, receptionist, cashier | Active drivers, for assignment. |
+| `GET /inventory/items`, `GET /inventory/items/:id`, `GET /inventory/summary`, `GET /inventory/transactions` | owner, manager, laundry staff | Items carry a computed `status` (GOOD/LOW/OUT); `?status=LOW` lists the alert items. |
+| `POST /inventory/items`, `PATCH /inventory/items/:id` | owner, manager | Optional `openingStock` on create. Quantity is never edited directly. Hidden, never deleted. |
+| `POST /inventory/items/:id/transactions` | owner, manager | `PURCHASE`/`USAGE` with `quantity`; `ADJUSTMENT` with `countedQuantity` + required `notes`. Anything that would go below zero is refused (400). |
 
 ## Every endpoint must have
 

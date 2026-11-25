@@ -13,6 +13,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { LogisticsModule } from './modules/logistics/logistics.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -33,6 +34,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     LogisticsModule,
     SettingsModule,
     CatalogModule,
+    InventoryModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

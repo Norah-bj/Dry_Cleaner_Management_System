@@ -82,6 +82,8 @@ about prices, payment methods or hours: the owner enters those in Settings
 Goal: stock is tracked in the database and cannot go negative (business
 rule #6).
 
+Status (2026-11-25): built in the Phase 3 PR, waiting for merge.
+
 - [ ] Inventory module: items, purchase/usage/adjustment transactions,
       stock validated on the server before usage.
 - [ ] Order materials (bag, cover, hangers, envelope) record usage

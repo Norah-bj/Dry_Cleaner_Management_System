@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-11-25 (Phase 3: inventory)
+
+**Phase:** Roadmap Phase 3
+
+Stock is now tracked in the database and can never go below zero
+(business rule #6). The owner enters her own items and quantities;
+nothing is seeded.
+
+- **`inventory` module** (`/api/v1/inventory`): stock items (name,
+  category, unit, minimum level, supplier) and an append-only ledger of
+  purchases, usage and stock counts. Every change locks the item row and
+  writes a ledger row in the same database transaction; a CHECK constraint
+  also blocks negative stock at the database level.
+- **Stock counts** set the level to the counted number and require a reason.
+  Purchases can record price per unit and supplier.
+- **Packaging on orders**: a stock item can be linked to a packaging
+  material (bag, cover, hanger, envelope). Orders using it (unless the
+  customer brought their own) take it out of stock. The order, its status
+  history and the stock change are saved together: not enough stock means
+  the order is refused and nothing is saved (BUSINESS-RULES #15).
+- **Inventory page**: real items with Good/Low/Out status, a "Running low"
+  callout with Restock, purchase/usage/stock-count forms, add/edit/hide
+  items, and the stock history. Visible to owner, manager and laundry
+  staff; only owner and manager can change stock.
+- Migration `1764100000000-CreateInventory` (run, revert, re-run tested;
+  no schema drift).
+
+---
+
 ## 2026-11-24 (Phase 2: staff accounts and owner-configured settings)
 
 **Phase:** Roadmap Phase 2

@@ -76,10 +76,18 @@ buttons on the dashboard are real. Planned with Reports (roadmap Phase 5).
 
 Status: Open (found 2026-11-24)
 
-## #8 — Inventory and Reports pages show sample data
+## #8 — Reports page shows sample data
 
-Both pages still read browser-only sample data. Since Phase 2 they carry a
-"Preview only" banner so nobody mistakes the numbers for real records.
-Inventory is roadmap Phase 3; Reports is Phase 5.
+Reports still reads browser-only sample data, marked "Preview only"
+(roadmap Phase 5). Inventory became real in Phase 3 (2026-11-25).
 
 Status: Open (found 2026-11-24)
+
+## #9 — Cancelled orders don't return packaging to stock
+
+Packaging taken out of stock when an order is created isn't put back if the
+order is later cancelled. Until that's built, record a stock count in
+Inventory to correct the level. Whether cancellation should restock depends
+on the cancellation policy the client hasn't set yet (CLIENT-QUESTIONS §2).
+
+Status: Open (found 2026-11-25)

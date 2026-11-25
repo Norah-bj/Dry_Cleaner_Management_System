@@ -6,8 +6,8 @@ intake → processing → payment → pickup/delivery.
 
 **Status:** In development, not yet in use at the shop. Auth, Customers,
 Orders, Laundry workflow, Payments, Pickups/Deliveries, staff accounts
-(Employees) and Settings (prices, payment methods, hours) have backends.
-Inventory and Reports still show sample data, marked "Preview only". The path to a working product, and the current phase, are in
+(Employees), Settings (prices, payment methods, hours) and Inventory have
+backends. Reports still shows sample data, marked "Preview only". The path to a working product, and the current phase, are in
 [docs/ROADMAP.md](docs/ROADMAP.md). See [docs/CHANGELOG.md](docs/CHANGELOG.md)
 for what's landed.
 
