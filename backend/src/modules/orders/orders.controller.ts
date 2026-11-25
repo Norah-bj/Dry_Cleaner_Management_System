@@ -14,6 +14,8 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
+import { Throttle } from '@nestjs/throttler';
+import { RATE_LIMITS } from '../../common/rate-limits';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { Public } from '../../common/decorators/public.decorator';
@@ -51,6 +53,7 @@ export class OrdersController {
 
   @Get('track/:orderNumber')
   @Public()
+  @Throttle({ default: RATE_LIMITS.publicTracking })
   @ApiOperation({
     summary: 'Public order tracking by order number (no auth required)',
   })

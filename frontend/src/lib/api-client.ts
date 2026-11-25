@@ -1,4 +1,10 @@
-import { readStoredAuth } from './auth-storage';
+import {
+  SESSION_ENDED_EVENT,
+  clearStoredAuth,
+  readStoredAuth,
+  writeStoredAuth,
+  type StoredAuth,
+} from './auth-storage';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1';
 
@@ -20,45 +26,108 @@ interface ApiFetchOptions extends Omit<RequestInit, 'body'> {
   auth?: boolean;
 }
 
+async function send(path: string, body: unknown, headers: Headers, options: RequestInit) {
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const isJson = response.headers.get('content-type')?.includes('application/json');
+  const data: unknown = isJson ? await response.json() : undefined;
+  return { response, data };
+}
+
+function toError(response: Response, data: unknown): ApiError {
+  const raw =
+    data && typeof data === 'object' && 'message' in data
+      ? (data as { message: unknown }).message
+      : undefined;
+  const message = Array.isArray(raw) ? raw.join('. ') : raw !== undefined ? String(raw) : response.statusText;
+  return new ApiError(response.status, message, data);
+}
+
+// One refresh at a time: parallel 401s all wait for the same renewal.
+let refreshing: Promise<StoredAuth | null> | null = null;
+
+/**
+ * Swaps the stored refresh token for a new access/refresh pair. If another
+ * tab already rotated it (our copy is stale), uses that tab's newer tokens.
+ * Returns null when the session is really over.
+ */
+async function refreshSession(): Promise<StoredAuth | null> {
+  const stored = readStoredAuth();
+  if (!stored?.refreshToken) return null;
+  const headers = new Headers({ 'Content-Type': 'application/json' });
+  const { response, data } = await send('/auth/refresh', { refreshToken: stored.refreshToken }, headers, { method: 'POST' });
+  if (response.ok) {
+    const next = data as StoredAuth;
+    writeStoredAuth(next);
+    return next;
+  }
+  const latest = readStoredAuth();
+  if (latest?.refreshToken && latest.refreshToken !== stored.refreshToken) return latest;
+  return null;
+}
+
+function endSession(): void {
+  clearStoredAuth();
+  window.dispatchEvent(new Event(SESSION_ENDED_EVENT));
+}
+
 /**
  * Thin fetch wrapper: JSON in/out, attaches the bearer token unless
- * `auth: false`, and normalizes non-2xx responses into ApiError using
- * the backend's error message when present (see docs/architecture/API.md
- * - the backend doesn't have its custom error envelope yet, so this
- * reads NestJS's default HttpException shape).
+ * `auth: false`, renews an expired access token once using the refresh
+ * token, and normalizes non-2xx responses into ApiError using the
+ * backend's documented error shape (docs/architecture/API.md).
  */
 export async function apiFetch<T>(
   path: string,
   { body, auth = true, headers, ...options }: ApiFetchOptions = {},
 ): Promise<T> {
-  const requestHeaders = new Headers(headers);
-  requestHeaders.set('Content-Type', 'application/json');
+  const build = () => {
+    const h = new Headers(headers);
+    h.set('Content-Type', 'application/json');
+    const stored = auth ? readStoredAuth() : null;
+    if (stored?.accessToken) h.set('Authorization', `Bearer ${stored.accessToken}`);
+    return h;
+  };
 
-  if (auth) {
-    const stored = readStoredAuth();
-    if (stored?.accessToken) {
-      requestHeaders.set('Authorization', `Bearer ${stored.accessToken}`);
+  let { response, data } = await send(path, body, build(), options);
+
+  if (response.status === 401 && auth && readStoredAuth()) {
+    // Signed in from before refresh tokens existed: nothing to renew with.
+    if (!readStoredAuth()?.refreshToken) {
+      endSession();
+      throw toError(response, data);
     }
+    refreshing ??= refreshSession().finally(() => {
+      refreshing = null;
+    });
+    const renewed = await refreshing;
+    if (!renewed) {
+      endSession();
+      throw toError(response, data);
+    }
+    ({ response, data } = await send(path, body, build(), options));
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: requestHeaders,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-
-  const isJson = response.headers
-    .get('content-type')
-    ?.includes('application/json');
-  const data = isJson ? await response.json() : undefined;
-
-  if (!response.ok) {
-    const message =
-      (data && typeof data === 'object' && 'message' in data
-        ? String((data as { message: unknown }).message)
-        : undefined) ?? response.statusText;
-    throw new ApiError(response.status, message, data);
-  }
-
+  if (!response.ok) throw toError(response, data);
   return data as T;
+}
+
+/** Ends the server-side session too (best effort - always clears locally). */
+export async function logoutSession(): Promise<void> {
+  const stored = readStoredAuth();
+  clearStoredAuth();
+  if (!stored?.refreshToken) return;
+  try {
+    await send(
+      '/auth/logout',
+      { refreshToken: stored.refreshToken },
+      new Headers({ 'Content-Type': 'application/json' }),
+      { method: 'POST' },
+    );
+  } catch {
+    // Offline: the token still expires on its own.
+  }
 }

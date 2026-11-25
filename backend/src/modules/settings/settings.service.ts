@@ -5,6 +5,7 @@ import { BusinessSettings } from './entities/business-settings.entity';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { ServiceItem } from '../catalog/entities/service-item.entity';
 import { User, UserRole } from '../users/entities/user.entity';
+import { AuditService } from '../audit/audit.service';
 
 export interface SetupItem {
   key: string;
@@ -32,6 +33,7 @@ export class SettingsService {
     private readonly serviceItemsRepository: Repository<ServiceItem>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -66,6 +68,10 @@ export class SettingsService {
     userId?: string,
   ): Promise<BusinessSettings> {
     const settings = await this.get();
+    const before = JSON.parse(JSON.stringify(settings)) as Record<
+      string,
+      unknown
+    >;
     const { materialCharges, turnaround, ...rest } = dto;
     Object.assign(settings, rest);
     if (materialCharges) {
@@ -80,7 +86,31 @@ export class SettingsService {
     if (dto.timeSlots)
       settings.timeSlots = dto.timeSlots.map((s) => s.trim()).filter(Boolean);
     settings.updatedByUserId = userId ?? null;
-    return this.settingsRepository.save(settings);
+    const saved = await this.settingsRepository.save(settings);
+    const changed = Object.keys(dto).filter(
+      (k) =>
+        JSON.stringify(before[k]) !==
+        JSON.stringify((saved as unknown as Record<string, unknown>)[k]),
+    );
+    if (changed.length > 0) {
+      await this.auditService.log({
+        actorId: userId,
+        action: 'settings.updated',
+        entityType: 'settings',
+        entityId: '1',
+        summary: `Changed settings: ${changed.join(', ')}`,
+        details: Object.fromEntries(
+          changed.map((k) => [
+            k,
+            {
+              before: before[k],
+              after: (saved as unknown as Record<string, unknown>)[k],
+            },
+          ]),
+        ),
+      });
+    }
+    return saved;
   }
 
   async getPublic(): Promise<PublicSettings> {

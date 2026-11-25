@@ -20,6 +20,8 @@ export function applyE2eEnv(): string {
 
   process.env.DATABASE_NAME = dbName;
   process.env.JWT_SECRET ??= 'e2e-only-secret-not-for-real-use';
+  // Tests log in many times from one IP; security.e2e-spec turns this back on.
+  process.env.RATE_LIMIT_ENABLED = 'false';
   return dbName;
 }
 

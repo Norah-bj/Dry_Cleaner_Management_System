@@ -1,4 +1,5 @@
 import {
+  Index,
   Column,
   CreateDateColumn,
   Entity,
@@ -16,6 +17,7 @@ export enum CustomerStatus {
  * and is the primary reference on the customer's paper/receipt.
  */
 @Entity('customers')
+@Index('IDX_customers_phone', ['phone'])
 export class Customer {
   @PrimaryGeneratedColumn('uuid')
   id: string;

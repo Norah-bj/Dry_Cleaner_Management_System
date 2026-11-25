@@ -16,6 +16,7 @@ import { RecordPaymentDto } from './dto/record-payment.dto';
 import { QueryPaymentsDto } from './dto/query-payments.dto';
 import { PaginatedResult } from '../../common/types/paginated-result';
 import { SettingsService } from '../settings/settings.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class PaymentsService {
@@ -28,6 +29,7 @@ export class PaymentsService {
     private readonly ordersRepository: Repository<Order>,
     private readonly dataSource: DataSource,
     private readonly settingsService: SettingsService,
+    private readonly auditService: AuditService,
   ) {}
 
   private async generateReceiptNumber(): Promise<string> {
@@ -150,6 +152,24 @@ export class PaymentsService {
           await manager.save(Invoice, invoice);
         }
       }
+
+      await this.auditService.log(
+        {
+          actorId: userId,
+          action: 'payment.recorded',
+          entityType: 'payment',
+          entityId: savedPayment.id,
+          summary: `Recorded ${paymentAmount} ${dto.paymentMethod} on order ${order.orderNumber} (receipt ${receiptNumber}); balance now ${newBalance}`,
+          details: {
+            orderId,
+            orderNumber: order.orderNumber,
+            amount: paymentAmount,
+            method: dto.paymentMethod,
+            balanceAfter: newBalance,
+          },
+        },
+        manager,
+      );
 
       return savedPayment;
     });

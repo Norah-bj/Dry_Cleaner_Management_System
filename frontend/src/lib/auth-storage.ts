@@ -1,17 +1,21 @@
 import type { AuthUser } from '../types/auth';
 
-interface StoredAuth {
+export interface StoredAuth {
   accessToken: string;
+  /** Single-use; swapped for a new pair at POST /auth/refresh. */
+  refreshToken?: string;
   user: AuthUser;
 }
 
 const STORAGE_KEY = 'edcms.auth';
 
+/** Fired when the session ends without a page action (refresh failed, signed out in another tab). */
+export const SESSION_ENDED_EVENT = 'edcms:session-ended';
+
 /**
  * Single source of truth for the persisted session, read by both the
  * AuthProvider (React state) and the plain api-client module (which has
- * no access to React context). Kept in sync by AuthProvider on
- * login/logout.
+ * no access to React context).
  */
 export function readStoredAuth(): StoredAuth | null {
   try {
@@ -28,7 +32,7 @@ export function writeStoredAuth(auth: StoredAuth): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(auth));
   } catch {
     // Storage unavailable (private mode, quota, etc.) - session just
-    // won't survive a refresh; not fatal to the current page load.
+    // won't survive a reload; not fatal to the current page load.
   }
 }
 
@@ -39,3 +43,5 @@ export function clearStoredAuth(): void {
     // See writeStoredAuth.
   }
 }
+
+export const AUTH_STORAGE_KEY = STORAGE_KEY;

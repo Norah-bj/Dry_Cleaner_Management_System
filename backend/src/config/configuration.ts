@@ -14,7 +14,9 @@ export interface DatabaseConfig {
 
 export interface AuthConfig {
   jwtSecret: string;
+  /** Access-token lifetime, e.g. "15m". Kept short; sessions continue via refresh tokens. */
   jwtExpiresIn: string;
+  refreshTokenTtlDays: number;
 }
 
 export interface Configuration {
@@ -49,6 +51,10 @@ export default (): Configuration => ({
   },
   auth: {
     jwtSecret: requireEnv('JWT_SECRET'),
-    jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '8h',
+    jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '15m',
+    refreshTokenTtlDays: parseInt(
+      process.env.REFRESH_TOKEN_TTL_DAYS ?? '30',
+      10,
+    ),
   },
 });

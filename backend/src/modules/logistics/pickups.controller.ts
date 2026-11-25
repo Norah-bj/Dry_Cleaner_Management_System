@@ -16,6 +16,8 @@ import { CreatePickupDto } from './dto/create-pickup.dto';
 import { UpdatePickupDto } from './dto/update-pickup.dto';
 import { PublicPickupRequestDto } from './dto/public-pickup-request.dto';
 import { QueryPickupsDto } from './dto/query-logistics.dto';
+import { Throttle } from '@nestjs/throttler';
+import { RATE_LIMITS } from '../../common/rate-limits';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
@@ -41,6 +43,7 @@ export class PickupsController {
    */
   @Post('request')
   @Public()
+  @Throttle({ default: RATE_LIMITS.publicPickupRequest })
   @ApiOperation({
     summary: 'Customer pickup request from the public page (no login)',
   })
