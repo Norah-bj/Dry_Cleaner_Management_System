@@ -78,6 +78,14 @@ business rule that isn't listed, it must ask rather than invent one.
     through recorded purchases, usage and stock counts (a count needs a
     reason). Source: rule #6 plus settled design decision, 2026-11-25.
 
+16. **EDCMS receipts are not EBM tax receipts** until an EBM integration is
+    confirmed and built (CLAUDE.md rule 9). Every printed slip and receipt
+    says so; the shop keeps issuing tax receipts on its EBM machine.
+    Source: CLAUDE.md rule 9, 2026-11-25.
+17. **Business days are Rwanda days.** "Today", daily totals and report
+    ranges use the shop's local time (Africa/Kigali), not the server's.
+    Source: business location (Nyamata, Rwanda), 2026-11-25.
+
 ## Open questions (not yet rules — do not implement as if decided)
 
 These map to the open questions in `docs/requirements/REQUIREMENTS.md`:

@@ -33,7 +33,10 @@ Run from `backend/` unless noted. You need PostgreSQL running and
   `test/inventory.e2e-spec.ts` (stock never negative, order packaging usage
   and rollback, history, low-stock list), `test/security.e2e-spec.ts`
   (refresh rotation and reuse detection, logout, sign-out on deactivation,
-  security headers, error shape, audit log, rate limits).
+  security headers, error shape, audit log, rate limits), `test/reports.e2e-spec.ts`
+  (report totals from real records, empty days, range validation, CSV
+  format and formula safety, roles, dashboard incl. money hidden from
+  laundry staff, overdue detection, EBM status).
 - Rate limiting is switched off for the E2E run (`RATE_LIMIT_ENABLED=false`
   in `test/setup/e2e-env.ts`) because the tests sign in many times from one
   IP. `security.e2e-spec.ts` switches it on to test the limits themselves.
@@ -77,8 +80,7 @@ npm run dev             # http://localhost:5173
 
 Sign in with the seeded admin. If the backend is stopped, every page must
 show a red "couldn't load…" message with a **Try again** button. No page
-may ever show sample orders, payments or drivers. The only exception is
-Reports, which is marked "Preview only" until Phase 5.
+may ever show sample orders, payments or drivers.
 
 ### A. First-run setup (do this first; it's what the owner will do)
 
@@ -160,7 +162,25 @@ Reports, which is marked "Preview only" until Phase 5.
 28. **Password guessing**: enter a wrong password 11 times in a minute: the
     11th attempt says too many requests.
 
-### G. Server down
+### G. Reports, dashboard, receipts (Phase 5)
 
-29. Stop the backend and reload pages: each shows the red error message.
+30. **Dashboard**: the numbers match what you did (today's orders, money
+    received, ready, outstanding). An order with a past "Ready by" shows as
+    **Overdue** under Needs attention.
+31. **Reports**: choose "This month". Totals match the payments you
+    recorded. Download each CSV and open it in Excel. Click **Print / Save
+    as PDF**: only the report prints.
+32. **New Order**: set a **Ready by** time. The slip shows the shop's real
+    phone (from Settings), the customer number, and that time. Leave it
+    empty on another order: the slip says you'll call the customer.
+33. **Receipt**: on an order with a payment, click **Receipt** next to the
+    payment and print it. Only the receipt prints. It says "This is not an
+    EBM tax receipt".
+34. **WhatsApp**: on Order Details click **WhatsApp**: WhatsApp opens to the
+    customer with a ready-to-edit message (nothing is sent until you press
+    send).
+
+### H. Server down
+
+35. Stop the backend and reload pages: each shows the red error message.
     The customer page's pickup form says it couldn't send the request.

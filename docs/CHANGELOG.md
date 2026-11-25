@@ -1,5 +1,47 @@
 # Changelog
 
+## 2026-11-25 (Phase 5: reports, dashboard, receipts, WhatsApp, EBM boundary)
+
+**Phase:** Roadmap Phase 5
+
+The last screens on sample data are now real, and `frontend/src/mock/` is
+gone: nothing staff see is fake.
+
+- **Reports** (`GET /reports/summary`, owner/manager): for any date range,
+  money received (per day and per method), orders (count, value, average,
+  by speed, by status, most-cleaned items, discounts), new customers, what
+  is owed now, stock spend and usage, pickups and deliveries. Computed from
+  the ledgers, never stored. Days are Rwanda days (`BUSINESS_TIMEZONE`,
+  default `Africa/Kigali`), whatever zone the server runs in.
+- **Exports**: `GET /reports/export/{payments|orders|customers|inventory}`
+  downloads a CSV that opens in Excel (UTF-8 with BOM; cells that would run
+  as formulas are neutralised). **PDF**: the Reports page prints cleanly via
+  "Print / Save as PDF".
+- **Dashboard** (`GET /dashboard/summary`): today's orders, money received,
+  ready (and how many not fully paid), outstanding, laundry flow per stage,
+  orders needing attention (overdue, due today, ready, failed delivery),
+  today's pickups/deliveries, last 7 days. Laundry staff see counts but no
+  money. Refreshes every minute.
+- **Order slip and payment receipt** (business rule #9): shop name, address,
+  phone and TIN from Settings (was a made-up number), customer number,
+  items, total/paid/balance, storage IDs, and the ready time. Each payment
+  now has its own printable receipt. Both say "This is not an EBM tax
+  receipt". Printing prints only the slip, sized for 80mm paper. Removed the
+  fake QR box.
+- **Ready by**: New Order has an optional ready date/time, printed on the
+  slip and used for "overdue/due today". Orders without one no longer show
+  "now" as their ready time.
+- **WhatsApp** (Phase 1A click-to-chat): Order Details opens WhatsApp to the
+  customer with a message for the order's stage (received / ready / done),
+  which staff edit and send themselves. No Business API.
+- **EBM**: isolated `ebm` module (`GET /ebm/status` → not configured) per
+  CLAUDE.md rule 9. No integration until the client confirms the device.
+- **Automatic notifications** are not built: they wait on which channels
+  the client uses (CLIENT-QUESTIONS §4). Until then, the WhatsApp button
+  covers "received/ready/done" messages manually.
+
+---
+
 ## 2026-11-25 (Phase 4: security hardening)
 
 **Phase:** Roadmap Phase 4

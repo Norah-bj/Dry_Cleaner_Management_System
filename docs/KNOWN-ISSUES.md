@@ -71,20 +71,21 @@ limiting is still missing (roadmap Phase 4, KNOWN-ISSUES #3).
 Status: Resolved 2026-11-25 (Phase 4): tracking is limited to 30 requests a
 minute and pickup requests to 5 per 10 minutes, per IP.
 
-## #7 — Dashboard numbers are placeholders
+## #7 — Dashboard numbers are placeholders (resolved)
 
 The dashboard's stat cards (today's orders, revenue, etc.) still show 0.
 They aren't connected to real data yet. The setup checklist and the quick
 buttons on the dashboard are real. Planned with Reports (roadmap Phase 5).
 
-Status: Open (found 2026-11-24)
+Status: Resolved 2026-11-25 (Phase 5): the dashboard reads `/dashboard/summary`.
 
 ## #8 — Reports page shows sample data
 
 Reports still reads browser-only sample data, marked "Preview only"
 (roadmap Phase 5). Inventory became real in Phase 3 (2026-11-25).
 
-Status: Open (found 2026-11-24)
+Status: Resolved 2026-11-25 (Phase 5): Reports reads `/reports/summary`;
+`frontend/src/mock/` deleted.
 
 ## #9 — Cancelled orders don't return packaging to stock
 
@@ -116,3 +117,22 @@ Moving the refresh token to an httpOnly cookie needs the frontend and API on
 the same site, so revisit once hosting is chosen (roadmap Phase 6).
 
 Status: Open, accepted for now (2026-11-25)
+
+## #12 — No automatic customer notifications yet
+
+Order received / ready / paid / pickup / delivery messages are not sent
+automatically: which channels the shop uses (WhatsApp, SMS, calls) is still
+an open client question (CLIENT-QUESTIONS §4). Staff can send each message
+in one tap from Order Details (WhatsApp click-to-chat, pre-filled). Build
+automatic sending once the client answers.
+
+Status: Waiting on client (2026-11-25)
+
+## #13 — "Excel" export is CSV; "PDF" is the browser's Save as PDF
+
+Exports are CSV files that open directly in Excel (no extra library), and
+the Reports page prints / saves as PDF through the browser. If the owner
+needs real .xlsx files (several sheets, formatting) or a server-generated
+PDF, that needs a new dependency: ask first.
+
+Status: Open, by design for now (2026-11-25)

@@ -6,8 +6,8 @@ intake → processing → payment → pickup/delivery.
 
 **Status:** In development, not yet in use at the shop. Auth, Customers,
 Orders, Laundry workflow, Payments, Pickups/Deliveries, staff accounts
-(Employees), Settings (prices, payment methods, hours) and Inventory have
-backends. Reports still shows sample data, marked "Preview only". The path to a working product, and the current phase, are in
+(Employees), Settings, Inventory, Reports and the Dashboard all run on real
+data; there is no sample data left in the app. The path to a working product, and the current phase, are in
 [docs/ROADMAP.md](docs/ROADMAP.md). See [docs/CHANGELOG.md](docs/CHANGELOG.md)
 for what's landed.
 

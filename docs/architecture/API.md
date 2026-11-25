@@ -82,6 +82,10 @@ are restricted.
 | `GET /catalog/public` | public, 60/min per IP | Active price list. |
 | `GET /users`, `POST /users`, `PATCH /users/:id`, `POST /users/:id/reset-password` | owner, manager | Only a Super Admin can grant or change the Super Admin role. Nobody can deactivate themselves or change their own role; the last active Super Admin can't be removed. |
 | `GET /audit-logs` | owner, manager | Newest first; `?entityType=payment|order|user|price_list|settings|inventory`. Entries are never edited or deleted. |
+| `GET /reports/summary?from=YYYY-MM-DD&to=YYYY-MM-DD` | owner, manager | Inclusive Rwanda-time dates, max 366 days; defaults to today. |
+| `GET /reports/export/{payments\|orders\|customers\|inventory}?from&to` | owner, manager | `text/csv` attachment (UTF-8 BOM, Excel-safe). `Content-Disposition` is exposed via CORS for the file name. |
+| `GET /dashboard/summary` | all staff except drivers | Money fields are `null` for laundry staff. |
+| `GET /ebm/status` | staff | `{ configured: false, … }` until an EBM provider is built. |
 | `GET /users/drivers` | owner, manager, receptionist, cashier | Active drivers, for assignment. |
 | `GET /inventory/items`, `GET /inventory/items/:id`, `GET /inventory/summary`, `GET /inventory/transactions` | owner, manager, laundry staff | Items carry a computed `status` (GOOD/LOW/OUT); `?status=LOW` lists the alert items. |
 | `POST /inventory/items`, `PATCH /inventory/items/:id` | owner, manager | Optional `openingStock` on create. Quantity is never edited directly. Hidden, never deleted. |

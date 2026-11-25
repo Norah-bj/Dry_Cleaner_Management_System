@@ -122,6 +122,11 @@ Depends on: Phases 2–3 (all pages have a real backend to call).
 
 Goal: the remaining Phase 1 features in `REQUIREMENTS.md`.
 
+Status (2026-11-25): built in the Phase 5 PR, waiting for merge: reports,
+exports (CSV/print-to-PDF), dashboard, slip and receipts, WhatsApp
+click-to-chat, EBM boundary. **Automatic notifications and the real EBM
+integration wait on the client's answers** (KNOWN-ISSUES #12, CLIENT-QUESTIONS §1, §4).
+
 - [ ] Reports from real data: revenue, orders, payments, customers,
       inventory, pickup/delivery.
 - [ ] Export to PDF, Excel and CSV.
