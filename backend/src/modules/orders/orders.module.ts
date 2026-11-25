@@ -9,6 +9,7 @@ import { OrderStatusHistory } from './entities/order-status-history.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { CatalogModule } from '../catalog/catalog.module';
 import { SettingsModule } from '../settings/settings.module';
+import { InventoryModule } from '../inventory/inventory.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { SettingsModule } from '../settings/settings.module';
     ]),
     CatalogModule,
     SettingsModule,
+    InventoryModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

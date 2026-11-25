@@ -11,6 +11,7 @@ import {
   ServiceTier,
 } from './entities/order.entity';
 import { MaterialType } from './entities/order-material.entity';
+import { OrderStatusHistory } from './entities/order-status-history.entity';
 import { UserRole } from '../users/entities/user.entity';
 
 describe('OrdersService', () => {
@@ -23,6 +24,7 @@ describe('OrdersService', () => {
   let dataSource: Record<string, jest.Mock>;
   let catalogService: Record<string, jest.Mock>;
   let settingsService: Record<string, jest.Mock>;
+  let inventoryService: Record<string, jest.Mock>;
   let settings: {
     materialCharges: Record<string, number>;
     allowDiscounts: boolean;
@@ -60,8 +62,23 @@ describe('OrdersService', () => {
     customersRepo = {
       findOne: jest.fn(),
     };
+    // Order creation runs in a transaction; route the manager's saves to the
+    // repository mocks so assertions can check what was written.
+    const manager = {
+      save: jest.fn((entity: unknown, val: object) =>
+        entity === OrderStatusHistory
+          ? (statusHistoryRepo.save(val) as Promise<unknown>)
+          : (ordersRepo.save(val) as Promise<unknown>),
+      ),
+    };
     dataSource = {
       query: jest.fn().mockResolvedValue([{ num: 1 }]),
+      transaction: jest.fn((cb: (m: typeof manager) => Promise<unknown>) =>
+        cb(manager),
+      ),
+    };
+    inventoryService = {
+      consumeForOrder: jest.fn().mockResolvedValue(undefined),
     };
 
     catalogService = {
@@ -83,6 +100,7 @@ describe('OrdersService', () => {
       dataSource as never,
       catalogService as never,
       settingsService as never,
+      inventoryService as never,
     );
   });
 
@@ -135,6 +153,20 @@ describe('OrdersService', () => {
       });
       expect(statusHistoryRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ newStatus: OrderStatus.RECEIVED }),
+      );
+      // Packaging is taken out of stock in the same transaction (rule #6).
+      expect(inventoryService.consumeForOrder).toHaveBeenCalledWith(
+        expect.anything(),
+        'order-uuid-1',
+        expect.any(String),
+        [
+          expect.objectContaining({
+            materialType: MaterialType.HANGER,
+            quantity: 2,
+            customerProvided: false,
+          }),
+        ],
+        'user-1',
       );
     });
 

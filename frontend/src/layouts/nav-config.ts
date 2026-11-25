@@ -51,7 +51,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { label: 'Customers', path: '/customers', icon: Users },
       { label: 'Payments', path: '/payments', icon: Wallet },
-      { label: 'Inventory', path: '/inventory', icon: Package },
+      { label: 'Inventory', path: '/inventory', icon: Package, roles: ['super_admin', 'manager', 'laundry_staff'] },
       { label: 'Employees', path: '/employees', icon: UserCog, roles: OWNER_AND_MANAGER },
     ],
   },

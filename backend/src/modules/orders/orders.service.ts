@@ -24,6 +24,7 @@ import { PaginatedResult } from '../../common/types/paginated-result';
 import { CatalogService } from '../catalog/catalog.service';
 import { priceForTier } from '../catalog/entities/service-item.entity';
 import { SettingsService } from '../settings/settings.service';
+import { InventoryService } from '../inventory/inventory.service';
 import { BusinessSettings } from '../settings/entities/business-settings.entity';
 import { UserRole } from '../users/entities/user.entity';
 
@@ -55,6 +56,7 @@ export class OrdersService {
     private readonly dataSource: DataSource,
     private readonly catalogService: CatalogService,
     private readonly settingsService: SettingsService,
+    private readonly inventoryService: InventoryService,
   ) {}
 
   /**
@@ -211,18 +213,28 @@ export class OrdersService {
       materials,
     });
 
-    const savedOrder = await this.ordersRepository.save(order);
-
-    // Record initial status history
-    await this.statusHistoryRepository.save({
-      orderId: savedOrder.id,
-      previousStatus: null,
-      newStatus: initialStatus,
-      notes: 'Initial order intake',
-      changedByUserId: userId ?? null,
+    // Order, its first status-history row and the packaging taken out of
+    // stock are saved together: if stock is short, nothing is saved.
+    const savedId = await this.dataSource.transaction(async (manager) => {
+      const savedOrder = await manager.save(Order, order);
+      await manager.save(OrderStatusHistory, {
+        orderId: savedOrder.id,
+        previousStatus: null,
+        newStatus: initialStatus,
+        notes: 'Initial order intake',
+        changedByUserId: userId ?? null,
+      });
+      await this.inventoryService.consumeForOrder(
+        manager,
+        savedOrder.id,
+        savedOrder.orderNumber,
+        materials,
+        userId,
+      );
+      return savedOrder.id;
     });
 
-    return this.findOne(savedOrder.id);
+    return this.findOne(savedId);
   }
 
   async findAll(query: QueryOrdersDto): Promise<PaginatedResult<Order>> {
