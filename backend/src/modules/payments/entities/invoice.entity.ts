@@ -29,7 +29,7 @@ export class Invoice {
   @JoinColumn({ name: 'order_id' })
   order: Order;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ name: 'total_amount', type: 'decimal', precision: 12, scale: 2 })
   totalAmount: number;
 
   @Column({

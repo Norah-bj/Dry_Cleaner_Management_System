@@ -29,3 +29,29 @@ CORS is done (`CORS_ORIGINS` env var, see `.env.example`) - resolved as
 of the CORS changelog entry, no longer part of this item.
 
 Status: Planned
+
+## #4 — Entities and migrations still differ in naming
+
+After a fresh `npm run migration:run`, `migration:generate --dryrun` still
+proposes changes. They are names only and don't break anything at runtime:
+- foreign-key constraint names (`orders_customer_id_fkey` vs TypeORM's
+  generated `FK_...`)
+- enum type names (`order_items.service_tier` and both
+  `order_status_history` status columns reuse `orders_*_enum` in the
+  migration, but the entities expect their own enum types)
+
+Left alone because fixing it means a new migration. But until it is fixed,
+`migration:generate` will keep pulling this noise into every future
+migration. Fix with a dedicated migration, or by setting `enumName` and
+`foreignKeyConstraintName` in the entities, before the next schema change.
+
+Status: Open (found 2026-11-24)
+
+## #5 — Backend lint fails on main
+
+`npx eslint "{src,apps,libs,test}/**/*.ts"` reports 60 errors in the Stage B
+module code (mostly `no-unsafe-*` in `*.service.spec.ts`, plus a few in
+services/controllers). The Definition of Done requires lint to pass, so
+fix this before more feature work lands on these modules.
+
+Status: Open (found 2026-11-24)
