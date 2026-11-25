@@ -115,6 +115,44 @@ export async function apiFetch<T>(
   return data as T;
 }
 
+/**
+ * Downloads a file (e.g. a CSV export) with the same auth and token renewal
+ * as apiFetch, then hands it to the browser as a download.
+ */
+export async function apiDownload(path: string, fallbackName: string): Promise<void> {
+  const fetchFile = () => {
+    const h = new Headers();
+    const stored = readStoredAuth();
+    if (stored?.accessToken) h.set('Authorization', `Bearer ${stored.accessToken}`);
+    return fetch(`${API_URL}${path}`, { headers: h });
+  };
+  let response = await fetchFile();
+  if (response.status === 401 && readStoredAuth()?.refreshToken) {
+    refreshing ??= refreshSession().finally(() => {
+      refreshing = null;
+    });
+    if (!(await refreshing)) {
+      endSession();
+      throw new ApiError(401, 'Your session has ended. Please sign in again.');
+    }
+    response = await fetchFile();
+  }
+  if (!response.ok) {
+    const isJson = response.headers.get('content-type')?.includes('application/json');
+    throw toError(response, isJson ? await response.json() : undefined);
+  }
+  const name =
+    /filename="([^"]+)"/.exec(response.headers.get('content-disposition') ?? '')?.[1] ?? fallbackName;
+  const url = URL.createObjectURL(await response.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 /** Ends the server-side session too (best effort - always clears locally). */
 export async function logoutSession(): Promise<void> {
   const stored = readStoredAuth();

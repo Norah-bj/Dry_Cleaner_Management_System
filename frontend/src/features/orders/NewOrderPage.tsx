@@ -71,6 +71,7 @@ export function NewOrderPage() {
   const [customerAddress, setCustomerAddress] = useState('');
 
   const [tier, setTier] = useState<ApiServiceTier>('STANDARD');
+  const [readyBy, setReadyBy] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
   const [pickId, setPickId] = useState('');
   const [materials, setMaterials] = useState<MaterialLine[]>([]);
@@ -162,6 +163,7 @@ export function NewOrderPage() {
       const created = await apiCreateOrder({
         customerId,
         serviceTier: tier,
+        expectedCompletion: readyBy ? new Date(readyBy).toISOString() : undefined,
         discount: canDiscount && discount > 0 ? discount : undefined,
         notes: notes.trim() || undefined,
         items: lines.map((l) => ({ serviceItemId: l.serviceItemId, quantity: l.quantity, notes: l.notes.trim() || undefined })),
@@ -253,6 +255,18 @@ export function NewOrderPage() {
                   </button>
                 ))}
               </div>
+              <label className="mt-4 block text-xs font-semibold">Ready by (printed on the slip)
+                <input
+                  type="datetime-local"
+                  value={readyBy}
+                  min={new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16)}
+                  onChange={(e) => setReadyBy(e.target.value)}
+                  className={cn(inputClass, 'mt-1 sm:w-64')}
+                />
+                <span className="mt-1 block text-[11px] font-normal text-text-muted">
+                  Optional. Leave empty and the slip says you'll call the customer when it's ready.
+                </span>
+              </label>
             </Card>
 
             <Card className="p-5">

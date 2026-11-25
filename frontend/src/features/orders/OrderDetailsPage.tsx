@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Clock, DollarSign, Printer, Tag, RefreshCw } from 'lucide-react';
+import { buttonVariants } from '../../components/ui/button-variants';
+import { orderMessage, whatsAppLink } from '../../lib/whatsapp';
+import { ArrowLeft, MessageCircle, Clock, DollarSign, Printer, Tag, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -38,6 +40,8 @@ export function OrderDetailsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [isSlipOpen, setIsSlipOpen] = useState(false);
+  const [receiptFor, setReceiptFor] = useState<string | null>(null);
+  const [businessName, setBusinessName] = useState('EBENEZER DRY CLEANER');
 
   // Payment modal state
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
@@ -50,6 +54,7 @@ export function OrderDetailsPage() {
     getSettings()
       .then((s) => {
         setEnabledMethods(s.enabledPaymentMethods);
+        setBusinessName(s.businessName);
         setPayMethod(s.enabledPaymentMethods[0] ?? '');
       })
       .catch(() => setEnabledMethods([]));
@@ -150,9 +155,21 @@ export function OrderDetailsPage() {
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
 
-            <Button variant="secondary" onClick={() => setIsSlipOpen(true)}>
+            <Button variant="secondary" onClick={() => { setReceiptFor(null); setIsSlipOpen(true); }}>
               <Printer className="mr-1 h-4 w-4" /> Print Slip
             </Button>
+
+            {whatsAppLink(order.customerPhone, orderMessage(order, businessName)) && (
+              <a
+                href={whatsAppLink(order.customerPhone, orderMessage(order, businessName)) ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonVariants({ variant: 'secondary' })}
+                title="Opens WhatsApp with a message you can edit before sending"
+              >
+                <MessageCircle className="mr-1 h-4 w-4" /> WhatsApp
+              </a>
+            )}
 
             {nextStage && (
               <Button onClick={() => void handleAdvanceStage()} disabled={saving}>
@@ -339,9 +356,14 @@ export function OrderDetailsPage() {
                         <span>{p.receiptNumber}</span>
                         <span>{p.amount.toLocaleString()} RWF</span>
                       </div>
-                      <div className="text-[10px] text-text-muted flex justify-between mt-1">
+                      <div className="text-[10px] text-text-muted flex justify-between items-center mt-1">
                         <span>{p.method}</span>
-                        <span>{new Date(p.receivedAt).toLocaleDateString()}</span>
+                        <span className="flex items-center gap-2">
+                          {new Date(p.receivedAt).toLocaleDateString()}
+                          <button type="button" className="text-primary hover:underline" onClick={() => { setReceiptFor(p.id); setIsSlipOpen(true); }}>
+                            Receipt
+                          </button>
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -368,10 +390,12 @@ export function OrderDetailsPage() {
                   Expected Ready Date
                 </span>
                 <span className="font-semibold text-text">
-                  {new Date(order.expectedCompletion).toLocaleString([], {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  })}
+                  {order.expectedCompletion
+                    ? new Date(order.expectedCompletion).toLocaleString([], {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })
+                    : 'Not set'}
                 </span>
               </div>
             </div>
@@ -380,7 +404,7 @@ export function OrderDetailsPage() {
       </div>
 
       {/* Slip Modal */}
-      <OrderSlipModal isOpen={isSlipOpen} onClose={() => setIsSlipOpen(false)} order={order} />
+      <OrderSlipModal isOpen={isSlipOpen} onClose={() => setIsSlipOpen(false)} order={order} paymentId={receiptFor} />
 
       {/* Record Payment Dialog */}
       {isPaymentOpen && (

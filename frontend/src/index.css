@@ -7,3 +7,30 @@ body {
   color: var(--color-text);
   font-family: var(--font-sans);
 }
+
+/*
+ * Printing: only the element marked .print-area is printed (an order slip,
+ * a payment receipt, or a report), not the app shell behind it.
+ * Receipts are sized for 80mm thermal paper but also print fine on A4.
+ */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+  }
+  .print-receipt {
+    width: 72mm;
+    font-size: 11px;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

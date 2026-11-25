@@ -17,6 +17,8 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { EbmModule } from './modules/ebm/ebm.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -43,6 +45,8 @@ import { RolesGuard } from './common/guards/roles.guard';
     CatalogModule,
     InventoryModule,
     AuditModule,
+    ReportsModule,
+    EbmModule,
   ],
   providers: [
     // Rate limiting runs first, so floods are cut off before any auth work.

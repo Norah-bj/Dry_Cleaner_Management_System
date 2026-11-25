@@ -33,6 +33,8 @@ export function configureApp(app: INestApplication): void {
   app.enableCors({
     origin: appConfig?.corsOrigins,
     credentials: true,
+    // Lets the frontend read the file name of CSV downloads.
+    exposedHeaders: ['Content-Disposition'],
   });
   app.useGlobalPipes(
     new ValidationPipe({

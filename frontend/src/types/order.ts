@@ -58,9 +58,12 @@ export interface Order {
   customerName: string;
   customerPhone: string;
   customerAddress?: string;
+  /** Printed on the slip (business rule #9). */
+  customerNumber?: string;
   serviceTier: ServiceTier;
   currentStage: LaundryStage;
-  expectedCompletion: string;
+  /** Null when staff didn't set a ready time - never guessed. */
+  expectedCompletion: string | null;
   coverCode?: string; // e.g. C-001245
   bagCode?: string; // e.g. B-001245
   hangersCount: number;

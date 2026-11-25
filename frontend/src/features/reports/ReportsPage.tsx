@@ -1,241 +1,221 @@
-import { SampleDataBanner } from '../../components/ui/SampleDataBanner';
-import { useState } from 'react';
-import { BarChart3, TrendingUp, Package, Users, ShoppingBag, Download } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Download, Printer } from 'lucide-react';
+import { BarChart, BarList } from '../../components/ui/BarChart';
+import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { LoadError } from '../../components/ui/LoadError';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { mockStore } from '../../mock/mock-store';
-import { inventoryStore } from '../../mock/mock-inventory-store';
 import { cn } from '../../lib/cn';
+import { errorMessage } from '../../lib/error-message';
+import { downloadReport, getReportSummary, type ExportDataset, type ReportSummary } from '../../services/reports';
+import { PAYMENT_METHOD_LABELS, TIER_LABELS, type ApiPaymentMethod, type ApiServiceTier } from '../../types/settings';
 
-const RANGES = ['Today', '7 Days', '30 Days', 'All Time'] as const;
-type Range = (typeof RANGES)[number];
+type Preset = 'today' | 'week' | 'month' | 'lastMonth' | 'custom';
 
-function filterByRange(isoDate: string, range: Range): boolean {
-  const d = new Date(isoDate).getTime();
-  const now = Date.now();
-  if (range === 'Today') return new Date(isoDate).toDateString() === new Date().toDateString();
-  if (range === '7 Days') return d >= now - 7 * 86400000;
-  if (range === '30 Days') return d >= now - 30 * 86400000;
-  return true; // All Time
+const PRESETS: { id: Preset; label: string }[] = [
+  { id: 'today', label: 'Today' },
+  { id: 'week', label: 'Last 7 days' },
+  { id: 'month', label: 'This month' },
+  { id: 'lastMonth', label: 'Last month' },
+  { id: 'custom', label: 'Custom' },
+];
+
+const EXPORTS: { id: ExportDataset; label: string }[] = [
+  { id: 'payments', label: 'Payments' },
+  { id: 'orders', label: 'Orders' },
+  { id: 'customers', label: 'New customers' },
+  { id: 'inventory', label: 'Stock movements' },
+];
+
+const iso = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+const rwf = (n: number) => `${n.toLocaleString()} RWF`;
+const label = (s: string) => s.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+
+function rangeFor(preset: Exclude<Preset, 'custom'>): { from: string; to: string } {
+  const now = new Date();
+  if (preset === 'today') return { from: iso(now), to: iso(now) };
+  if (preset === 'week') return { from: iso(new Date(now.getTime() - 6 * 86_400_000)), to: iso(now) };
+  if (preset === 'month') return { from: iso(new Date(now.getFullYear(), now.getMonth(), 1)), to: iso(now) };
+  return {
+    from: iso(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
+    to: iso(new Date(now.getFullYear(), now.getMonth(), 0)),
+  };
 }
 
-const SERVICE_LABELS: Record<string, string> = {
-  NORMAL: 'Normal',
-  EXPRESS: 'Express',
-  SAME_DAY: 'Same Day',
-};
-
-const METHOD_LABELS: Record<string, string> = {
-  CASH: 'Cash',
-  MOBILE_MONEY: 'Mobile Money',
-  BANK_TRANSFER: 'Bank Transfer',
-  CARD: 'Card',
-};
-
-function StatCard({ icon: Icon, label, value, sub, color = 'text-primary' }: {
-  icon: React.ElementType;
-  label: string;
-  value: string | number;
-  sub?: string;
-  color?: string;
-}) {
+function Stat({ title, value, hint }: { title: string; value: string; hint?: string }) {
   return (
-    <Card className="p-4 space-y-2">
-      <div className="flex items-center gap-2 text-xs text-text-muted">
-        <Icon className="h-4 w-4" />
-        {label}
-      </div>
-      <div className={cn('text-2xl font-bold font-mono', color)}>{value}</div>
-      {sub && <div className="text-xs text-text-muted">{sub}</div>}
+    <Card className="p-4">
+      <div className="mb-1 text-xs text-text-muted">{title}</div>
+      <div className="text-xl font-bold text-text">{value}</div>
+      {hint && <div className="mt-0.5 text-[11px] text-text-muted">{hint}</div>}
     </Card>
   );
 }
 
+/** "How is the business performing?" (PAGES.md §12) - every number from real records. */
 export function ReportsPage() {
-  const [range, setRange] = useState<Range>('7 Days');
+  const [preset, setPreset] = useState<Preset>('month');
+  const [range, setRange] = useState(() => rangeFor('month'));
+  const [data, setData] = useState<ReportSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<ExportDataset | null>(null);
 
-  const allOrders = mockStore.getOrders().filter((o) => filterByRange(o.createdAt, range));
-  const allTransactions = allOrders.flatMap((o) =>
-    o.payments.filter((p) => filterByRange(p.receivedAt, range)).map((p) => ({ ...p, orderId: o.id }))
-  );
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setData(await getReportSummary(range.from, range.to));
+    } catch (err) {
+      setError(errorMessage(err, 'load the report'));
+    } finally {
+      setLoading(false);
+    }
+  }, [range]);
 
-  // Financial
-  const revenue = allTransactions.reduce((a, t) => a + t.amount, 0);
-  const outstanding = allOrders.reduce((a, o) => a + o.balanceDue, 0);
-  const avgOrderValue = allOrders.length ? Math.round(allOrders.reduce((a, o) => a + o.totalAmount, 0) / allOrders.length) : 0;
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  // By payment method
-  const byMethod: Record<string, number> = {};
-  for (const t of allTransactions) {
-    byMethod[t.method] = (byMethod[t.method] || 0) + t.amount;
-  }
+  const choose = (p: Preset) => {
+    setPreset(p);
+    if (p !== 'custom') setRange(rangeFor(p));
+  };
 
-  // By service tier
-  const byTier: Record<string, number> = {};
-  for (const o of allOrders) {
-    byTier[o.serviceTier] = (byTier[o.serviceTier] || 0) + 1;
-  }
+  const exportCsv = async (dataset: ExportDataset) => {
+    setExporting(dataset);
+    setError(null);
+    try {
+      await downloadReport(dataset, range.from, range.to);
+    } catch (err) {
+      setError(errorMessage(err, 'download the export'));
+    } finally {
+      setExporting(null);
+    }
+  };
 
-  // Stage distribution
-  const byStage: Record<string, number> = {};
-  for (const o of allOrders) {
-    byStage[o.currentStage] = (byStage[o.currentStage] || 0) + 1;
-  }
-
-  // Inventory (not date-filtered — stock is current)
-  const invItems = inventoryStore.getItems();
-  const invValue = invItems.reduce((a, i) => a + i.stockQty * i.unitCost, 0);
-  const purchases = inventoryStore.getPurchases();
-  const purchaseSpend = purchases.reduce((a, p) => a + p.totalCost, 0);
-
-  // Customers
-  const uniqueCustomers = new Set(allOrders.map((o) => o.customerId)).size;
-
-  // Delivery rate
-  const delivered = mockStore.getOrders().filter((o) => o.currentStage === 'DELIVERED').length;
-  const total = mockStore.getOrders().length;
-  const deliveryRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
+  const periodLabel =
+    range.from === range.to
+      ? new Date(`${range.from}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+      : `${new Date(`${range.from}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(`${range.to}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
   return (
     <div className="space-y-6">
-      <SampleDataBanner what="All figures" />
       <PageHeader
         title="Reports"
-        description="Business performance overview."
+        description="How is the business performing?"
         action={
-          <button
-            type="button"
-            onClick={() => alert('Export — coming in API phase')}
-            className="flex items-center gap-1.5 rounded border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-border/20 transition-colors"
-          >
-            <Download className="h-3.5 w-3.5" /> Export
-          </button>
+          <Button variant="secondary" onClick={() => window.print()} disabled={!data}>
+            <Printer className="h-4 w-4" /> Print / Save as PDF
+          </Button>
         }
       />
 
-      {/* Range selector */}
-      <div className="flex flex-wrap gap-2">
-        {RANGES.map((r) => (
-          <button
-            key={r}
-            type="button"
-            onClick={() => setRange(r)}
-            className={cn(
-              'rounded-full border px-4 py-1.5 text-xs font-medium transition-colors',
-              range === r
-                ? 'border-primary bg-primary-light text-primary'
-                : 'border-border text-text-muted hover:bg-border/30',
-            )}
-          >
-            {r}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Financial ── */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-text-muted flex items-center gap-2">
-          <TrendingUp className="h-4 w-4" /> Financial
-        </h2>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard icon={TrendingUp} label="Revenue Collected" value={`${revenue.toLocaleString()} RWF`} sub={`${allTransactions.length} transactions`} color="text-emerald-700" />
-          <StatCard icon={TrendingUp} label="Outstanding" value={`${outstanding.toLocaleString()} RWF`} sub={`${allOrders.filter(o => o.balanceDue > 0).length} orders unpaid`} color="text-rose-600" />
-          <StatCard icon={ShoppingBag} label="Orders" value={allOrders.length} sub={`Avg ${avgOrderValue.toLocaleString()} RWF/order`} />
-          <StatCard icon={Users} label="Unique Customers" value={uniqueCustomers} />
+      <Card className="no-print flex flex-wrap items-end gap-3 p-4">
+        <div className="flex flex-wrap gap-1">
+          {PRESETS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => choose(p.id)}
+              className={cn('rounded-full border px-3 py-1 text-xs font-medium', preset === p.id ? 'border-primary bg-primary-light text-primary' : 'border-border text-text-muted hover:bg-border/20')}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
-      </section>
-
-      {/* Payment method breakdown */}
-      {Object.keys(byMethod).length > 0 && (
-        <Card className="p-4">
-          <h3 className="mb-3 text-sm font-semibold text-text">Revenue by Payment Method</h3>
-          <div className="space-y-2">
-            {Object.entries(byMethod).sort((a, b) => b[1] - a[1]).map(([method, amount]) => {
-              const pct = revenue > 0 ? Math.round((amount / revenue) * 100) : 0;
-              return (
-                <div key={method} className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-text">{METHOD_LABELS[method] || method}</span>
-                    <span className="font-mono font-medium text-text">{amount.toLocaleString()} RWF <span className="text-text-muted">({pct}%)</span></span>
-                  </div>
-                  <div className="h-1.5 w-full rounded-full bg-border">
-                    <div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
+        {preset === 'custom' && (
+          <div className="flex items-end gap-2 text-xs">
+            <label>From<input type="date" value={range.from} max={range.to} onChange={(e) => e.target.value && setRange((r) => ({ ...r, from: e.target.value }))} className="mt-1 block rounded border border-border px-2 py-1" /></label>
+            <label>To<input type="date" value={range.to} min={range.from} onChange={(e) => e.target.value && setRange((r) => ({ ...r, to: e.target.value }))} className="mt-1 block rounded border border-border px-2 py-1" /></label>
           </div>
-        </Card>
-      )}
+        )}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <span className="text-xs text-text-muted">Download (opens in Excel):</span>
+          {EXPORTS.map((e) => (
+            <Button key={e.id} size="sm" variant="ghost" disabled={exporting !== null} onClick={() => void exportCsv(e.id)}>
+              <Download className="h-3.5 w-3.5" /> {exporting === e.id ? 'Preparing…' : e.label}
+            </Button>
+          ))}
+        </div>
+      </Card>
 
-      {/* ── Operations ── */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-text-muted flex items-center gap-2">
-          <BarChart3 className="h-4 w-4" /> Operations
-        </h2>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {/* By service tier */}
-          <Card className="p-4">
-            <h3 className="mb-3 text-sm font-semibold text-text">Orders by Service Tier</h3>
-            {Object.keys(byTier).length === 0 ? (
-              <p className="text-xs text-text-muted">No orders in this period.</p>
+      {error && <LoadError message={error} onRetry={() => void load()} />}
+
+      {!data ? (
+        <p className="text-sm text-text-muted">{loading ? 'Loading report…' : ''}</p>
+      ) : (
+        <div className={cn('print-area space-y-6', loading && 'opacity-60')}>
+          <div>
+            <h2 className="text-base font-semibold text-text">Report: {periodLabel}</h2>
+            <p className="text-[11px] text-text-muted">All amounts in RWF. Days are counted in {data.timezone.replace('_', ' ')} time.</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <Stat title="Money received" value={rwf(data.revenue.total)} hint={`${data.revenue.payments} payments`} />
+            <Stat title="Orders" value={String(data.orders.count)} hint={`worth ${rwf(data.orders.value)} · avg ${rwf(data.orders.averageValue)}`} />
+            <Stat title="New customers" value={String(data.customers.new)} hint={`${data.customers.total} in total`} />
+            <Stat title="Owed to the shop (now)" value={rwf(data.outstanding.total)} hint={`${data.outstanding.orders} orders · ${data.outstanding.customers} customers`} />
+          </div>
+
+          <Card className="p-5">
+            <h3 className="mb-3 text-sm font-semibold">Money received per day</h3>
+            {data.revenue.byDay.length > 62 ? (
+              <p className="text-xs text-text-muted">Pick a shorter period (up to 2 months) to see daily bars.</p>
             ) : (
-              <div className="space-y-2">
-                {Object.entries(byTier).sort((a, b) => b[1] - a[1]).map(([tier, count]) => {
-                  const pct = allOrders.length > 0 ? Math.round((count / allOrders.length) * 100) : 0;
-                  return (
-                    <div key={tier} className="space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-text">{SERVICE_LABELS[tier] || tier}</span>
-                        <span className="font-mono font-medium">{count} order{count !== 1 ? 's' : ''} <span className="text-text-muted">({pct}%)</span></span>
-                      </div>
-                      <div className="h-1.5 w-full rounded-full bg-border">
-                        <div
-                          className={cn('h-1.5 rounded-full transition-all', tier === 'SAME_DAY' ? 'bg-rose-500' : tier === 'EXPRESS' ? 'bg-amber-500' : 'bg-primary')}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <BarChart
+                data={data.revenue.byDay.map((d) => ({
+                  label: new Date(`${d.day}T12:00:00`).toLocaleDateString('en-GB', data.revenue.byDay.length > 7 ? { day: 'numeric' } : { weekday: 'short' }),
+                  title: d.day,
+                  value: d.total,
+                }))}
+                format={rwf}
+              />
             )}
           </Card>
 
-          {/* Stage distribution */}
-          <Card className="p-4">
-            <h3 className="mb-3 text-sm font-semibold text-text">Orders by Current Stage</h3>
-            {Object.keys(byStage).length === 0 ? (
-              <p className="text-xs text-text-muted">No orders in this period.</p>
-            ) : (
-              <div className="space-y-1.5">
-                {Object.entries(byStage).map(([stage, count]) => (
-                  <div key={stage} className="flex items-center justify-between text-xs">
-                    <span className="capitalize text-text-muted">{stage.replace('_', ' ')}</span>
-                    <span className="font-mono font-semibold text-text tabular-nums">{count}</span>
-                  </div>
-                ))}
-                <div className="pt-1 border-t border-border flex justify-between text-xs font-bold text-text">
-                  <span>Delivery rate (all time)</span>
-                  <span className="text-primary">{deliveryRate}%</span>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card className="p-5">
+              <h3 className="mb-3 text-sm font-semibold">By payment method</h3>
+              <BarList rows={data.revenue.byMethod.map((m) => ({ label: PAYMENT_METHOD_LABELS[m.method as ApiPaymentMethod] ?? m.method, value: m.total, detail: `${m.count}×` }))} format={rwf} empty="No payments in this period." />
+            </Card>
+            <Card className="p-5">
+              <h3 className="mb-3 text-sm font-semibold">Orders by speed</h3>
+              <BarList rows={data.orders.byTier.map((t) => ({ label: TIER_LABELS[t.tier as ApiServiceTier] ?? t.tier, value: t.count, detail: rwf(t.value) }))} empty="No orders in this period." />
+            </Card>
+            <Card className="p-5">
+              <h3 className="mb-3 text-sm font-semibold">Most-cleaned items</h3>
+              <BarList rows={data.orders.topItems.map((i) => ({ label: i.item, value: i.quantity, detail: rwf(i.value) }))} empty="No orders in this period." />
+            </Card>
+            <Card className="p-5">
+              <h3 className="mb-3 text-sm font-semibold">Orders by current status</h3>
+              <BarList rows={data.orders.byStatus.map((s) => ({ label: label(s.status), value: s.count }))} empty="No orders in this period." />
+              {data.orders.discounts > 0 && <p className="mt-3 text-xs text-text-muted">Discounts given: {rwf(data.orders.discounts)}</p>}
+            </Card>
+            <Card className="p-5">
+              <h3 className="mb-3 text-sm font-semibold">Stock</h3>
+              <p className="mb-3 text-xs text-text-muted">
+                Spent on purchases: <strong className="text-text">{rwf(data.inventory.purchasesCost)}</strong> ({data.inventory.purchases} purchases) ·
+                Now low: <strong className="text-text">{data.inventory.lowStock}</strong> · Out: <strong className="text-text">{data.inventory.outOfStock}</strong>
+              </p>
+              <BarList rows={data.inventory.topUsage.map((u) => ({ label: u.item, value: u.used, detail: u.unit }))} empty="No stock used in this period." />
+            </Card>
+            <Card className="p-5">
+              <h3 className="mb-3 text-sm font-semibold">Pickups and deliveries</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="mb-2 text-xs font-medium text-text-muted">Pickups</p>
+                  <BarList rows={data.logistics.pickups.map((p) => ({ label: label(p.status), value: p.count }))} empty="None scheduled." />
+                </div>
+                <div>
+                  <p className="mb-2 text-xs font-medium text-text-muted">Deliveries</p>
+                  <BarList rows={data.logistics.deliveries.map((d) => ({ label: label(d.status), value: d.count }))} empty="None scheduled." />
                 </div>
               </div>
-            )}
-          </Card>
+            </Card>
+          </div>
         </div>
-      </section>
-
-      {/* ── Inventory ── */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-text-muted flex items-center gap-2">
-          <Package className="h-4 w-4" /> Inventory
-        </h2>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-          <StatCard icon={Package} label="Stock Value (current)" value={`${invValue.toLocaleString()} RWF`} sub={`${invItems.length} items`} />
-          <StatCard icon={ShoppingBag} label="Low / Out of Stock" value={inventoryStore.getLowStockItems().length} sub="items need restocking" color="text-amber-600" />
-          <StatCard icon={TrendingUp} label="Total Purchase Spend" value={`${purchaseSpend.toLocaleString()} RWF`} sub={`${purchases.length} purchase records`} />
-        </div>
-      </section>
+      )}
     </div>
   );
 }

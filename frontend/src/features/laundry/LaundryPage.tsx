@@ -34,7 +34,7 @@ function mapApiOrderToOrder(api: ApiOrder): Order {
     customerAddress: api.customer?.address,
     serviceTier,
     currentStage,
-    expectedCompletion: api.expectedCompletion ?? new Date().toISOString(),
+    expectedCompletion: api.expectedCompletion ?? null,
     coverCode: api.storageHangerId,
     bagCode: api.storageBoxId,
     hangersCount: 0,
