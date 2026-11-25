@@ -4,11 +4,12 @@ Business operations system for EBENEZER DRY CLEANER (Nyamata, Bugesera,
 Rwanda), covering the full order lifecycle: customer registration → garment
 intake → processing → payment → pickup/delivery.
 
-**Status:** Phase 1 — Foundation, in progress. Backend (auth/RBAC) and
-frontend (app shell, login, and a real page for every nav item) are
-running; business features (Orders, Customers, etc.) are being built one
-at a time — see [docs/design/PAGES.md](docs/design/PAGES.md) for the
-build order and [docs/CHANGELOG.md](docs/CHANGELOG.md) for what's landed.
+**Status:** In development, not yet in use at the shop. Auth, Customers,
+Orders, Laundry workflow, Payments and Pickups/Deliveries have backends.
+Inventory, Employees, Settings/pricing and Reports still run on browser-only
+mock data. The path to a working product, and the current phase, are in
+[docs/ROADMAP.md](docs/ROADMAP.md). See [docs/CHANGELOG.md](docs/CHANGELOG.md)
+for what's landed.
 
 ## Stack
 
