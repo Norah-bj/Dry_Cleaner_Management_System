@@ -1,4 +1,5 @@
 import {
+  Index,
   Column,
   CreateDateColumn,
   Entity,
@@ -18,6 +19,10 @@ import { OrderStatus, PaymentStatus, ServiceTier } from '../enums/order-enums';
 export { OrderStatus, PaymentStatus, ServiceTier };
 
 @Entity('orders')
+@Index('IDX_orders_created_at', ['createdAt'])
+@Index('IDX_orders_status', ['status'])
+@Index('IDX_orders_payment_status', ['paymentStatus'])
+@Index('IDX_orders_customer', ['customerId'])
 export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;

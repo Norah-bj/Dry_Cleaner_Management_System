@@ -1,7 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
-import { AuthService } from './auth.service';
+import { AuthService, hashToken } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { User, UserRole } from '../users/entities/user.entity';
 
@@ -9,6 +9,7 @@ describe('AuthService', () => {
   let authService: AuthService;
   let usersService: jest.Mocked<Pick<UsersService, 'findByEmail'>>;
   let jwtService: jest.Mocked<Pick<JwtService, 'sign'>>;
+  let refreshTokens: Record<string, jest.Mock>;
   let activeUser: User;
 
   beforeEach(async () => {
@@ -27,9 +28,17 @@ describe('AuthService', () => {
     usersService = { findByEmail: jest.fn() };
     jwtService = { sign: jest.fn().mockReturnValue('signed.jwt.token') };
 
+    refreshTokens = {
+      create: jest.fn((v: object) => v),
+      save: jest.fn((v: object) => Promise.resolve({ id: 'rt-1', ...v })),
+      findOne: jest.fn(),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
     authService = new AuthService(
       usersService as unknown as UsersService,
       jwtService as unknown as JwtService,
+      refreshTokens as never,
+      { get: () => ({ refreshTokenTtlDays: 30 }) } as never,
     );
   });
 
@@ -74,8 +83,8 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('signs a JWT with the user id/email/role and returns a public user shape', () => {
-      const result = authService.login(activeUser);
+    it('signs a JWT, issues a refresh token, and returns a public user shape', async () => {
+      const result = await authService.login(activeUser);
 
       expect(jwtService.sign).toHaveBeenCalledWith({
         sub: activeUser.id,
@@ -84,6 +93,7 @@ describe('AuthService', () => {
       });
       expect(result).toEqual({
         accessToken: 'signed.jwt.token',
+        refreshToken: expect.any(String) as string,
         user: {
           id: activeUser.id,
           email: activeUser.email,
@@ -92,6 +102,12 @@ describe('AuthService', () => {
         },
       });
       expect(result.user).not.toHaveProperty('passwordHash');
+      // Only a hash of the refresh token is stored, never the token itself.
+      const stored = (
+        refreshTokens.save.mock.calls[0] as [{ tokenHash: string }]
+      )[0];
+      expect(stored.tokenHash).toBe(hashToken(result.refreshToken));
+      expect(stored.tokenHash).not.toBe(result.refreshToken);
     });
   });
 });

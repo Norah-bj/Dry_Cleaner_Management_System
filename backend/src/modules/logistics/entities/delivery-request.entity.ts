@@ -1,4 +1,5 @@
 import {
+  Index,
   Column,
   CreateDateColumn,
   Entity,
@@ -19,6 +20,7 @@ export enum DeliveryStatus {
 }
 
 @Entity('delivery_requests')
+@Index('IDX_delivery_requests_driver', ['assignedDriverId'])
 export class DeliveryRequest {
   @PrimaryGeneratedColumn('uuid')
   id: string;

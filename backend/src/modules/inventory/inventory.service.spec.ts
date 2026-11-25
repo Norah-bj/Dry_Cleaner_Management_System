@@ -56,6 +56,7 @@ describe('InventoryService', () => {
       {} as never,
       {} as never,
       dataSource as never,
+      { log: jest.fn().mockResolvedValue(undefined) } as never,
     );
   });
 

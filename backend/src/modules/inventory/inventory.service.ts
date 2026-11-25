@@ -12,6 +12,7 @@ import {
   Repository,
 } from 'typeorm';
 import { PaginatedResult } from '../../common/types/paginated-result';
+import { AuditService } from '../audit/audit.service';
 import { MaterialType } from '../orders/entities/order-material.entity';
 import {
   CreateInventoryItemDto,
@@ -56,6 +57,7 @@ export class InventoryService {
     @InjectRepository(InventoryTransaction)
     private readonly transactionsRepository: Repository<InventoryTransaction>,
     private readonly dataSource: DataSource,
+    private readonly auditService: AuditService,
   ) {}
 
   private view(item: InventoryItem): InventoryItemView {
@@ -156,12 +158,28 @@ export class InventoryService {
             'The counted quantity matches the current stock: nothing to adjust',
           );
         }
-        return this.applyChange(manager, id, {
+        const tx = await this.applyChange(manager, id, {
           type: dto.type,
           change,
           notes: dto.notes,
           userId,
         });
+        await this.auditService.log(
+          {
+            actorId: userId,
+            action: 'inventory.stock_counted',
+            entityType: 'inventory',
+            entityId: id,
+            summary: `Stock count for ${item.name}: ${item.stockQuantity} → ${tx.quantityAfter} ${item.unit} (${dto.notes ?? ''})`,
+            details: {
+              before: item.stockQuantity,
+              after: tx.quantityAfter,
+              reason: dto.notes ?? null,
+            },
+          },
+          manager,
+        );
+        return tx;
       }
       const quantity = dto.quantity ?? 0;
       return this.applyChange(manager, id, {

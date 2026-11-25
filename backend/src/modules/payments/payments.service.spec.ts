@@ -63,6 +63,7 @@ describe('PaymentsService', () => {
           enabledPaymentMethods: [PaymentMethod.CASH, PaymentMethod.MOMO],
         }),
       } as never,
+      { log: jest.fn().mockResolvedValue(undefined) } as never,
     );
   });
 

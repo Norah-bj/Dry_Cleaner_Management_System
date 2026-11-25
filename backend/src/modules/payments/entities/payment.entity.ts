@@ -1,4 +1,5 @@
 import {
+  Index,
   Column,
   CreateDateColumn,
   Entity,
@@ -22,6 +23,8 @@ export enum PaymentTxStatus {
 }
 
 @Entity('payments')
+@Index('IDX_payments_order', ['orderId'])
+@Index('IDX_payments_created_at', ['createdAt'])
 export class Payment {
   @PrimaryGeneratedColumn('uuid')
   id: string;

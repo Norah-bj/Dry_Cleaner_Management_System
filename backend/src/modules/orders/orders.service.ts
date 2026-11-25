@@ -25,6 +25,7 @@ import { CatalogService } from '../catalog/catalog.service';
 import { priceForTier } from '../catalog/entities/service-item.entity';
 import { SettingsService } from '../settings/settings.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { AuditService } from '../audit/audit.service';
 import { BusinessSettings } from '../settings/entities/business-settings.entity';
 import { UserRole } from '../users/entities/user.entity';
 
@@ -57,6 +58,7 @@ export class OrdersService {
     private readonly catalogService: CatalogService,
     private readonly settingsService: SettingsService,
     private readonly inventoryService: InventoryService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -231,6 +233,22 @@ export class OrdersService {
         materials,
         userId,
       );
+      await this.auditService.log(
+        {
+          actorId: userId,
+          action: 'order.created',
+          entityType: 'order',
+          entityId: savedOrder.id,
+          summary: `Created order ${savedOrder.orderNumber} (${tier}, total ${total}${discount > 0 ? `, discount ${discount}` : ''})`,
+          details: {
+            orderNumber: savedOrder.orderNumber,
+            total,
+            discount,
+            serviceTier: tier,
+          },
+        },
+        manager,
+      );
       return savedOrder.id;
     });
 
@@ -368,6 +386,7 @@ export class OrdersService {
     actor?: OrderActor,
   ): Promise<Order> {
     const order = await this.findOne(id);
+    const discountBefore = Number(order.discount);
 
     if (dto.storageHangerId !== undefined) {
       order.storageHangerId = dto.storageHangerId;
@@ -412,7 +431,29 @@ export class OrdersService {
       }
     }
 
-    return this.ordersRepository.save(order);
+    const saved = await this.ordersRepository.save(order);
+    const changed = Object.entries(dto)
+      .filter(([, v]) => v !== undefined)
+      .map(([k]) => k);
+    if (changed.length > 0) {
+      await this.auditService.log({
+        actorId: actor?.id,
+        action: 'order.updated',
+        entityType: 'order',
+        entityId: id,
+        summary: `Edited order ${order.orderNumber}: ${changed.join(', ')}${
+          dto.discount !== undefined
+            ? ` (discount ${discountBefore} → ${Number(dto.discount)}, total now ${Number(order.total)})`
+            : ''
+        }`,
+        details: {
+          changed,
+          discountBefore,
+          discountAfter: dto.discount ?? null,
+        },
+      });
+    }
+    return saved;
   }
 
   async updateStatus(
@@ -429,6 +470,18 @@ export class OrdersService {
 
     order.status = dto.status;
     const updated = await this.ordersRepository.save(order);
+    await this.auditService.log({
+      actorId: userId,
+      action: 'order.status_changed',
+      entityType: 'order',
+      entityId: id,
+      summary: `Order ${order.orderNumber}: ${previousStatus} → ${dto.status}${dto.notes ? ` (${dto.notes})` : ''}`,
+      details: {
+        from: previousStatus,
+        to: dto.status,
+        notes: dto.notes ?? null,
+      },
+    });
 
     await this.statusHistoryRepository.save({
       orderId: id,

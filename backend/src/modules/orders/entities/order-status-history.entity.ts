@@ -1,4 +1,5 @@
 import {
+  Index,
   Column,
   CreateDateColumn,
   Entity,
@@ -10,6 +11,7 @@ import { Order } from './order.entity';
 import { OrderStatus } from '../enums/order-enums';
 
 @Entity('order_status_history')
+@Index('IDX_order_status_history_order', ['orderId'])
 export class OrderStatusHistory {
   @PrimaryGeneratedColumn('uuid')
   id: string;

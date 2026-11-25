@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { ServiceItem } from './entities/service-item.entity';
+import { AuditService } from '../audit/audit.service';
 import {
   CreateServiceItemDto,
   UpdateServiceItemDto,
@@ -18,6 +19,7 @@ export class CatalogService {
   constructor(
     @InjectRepository(ServiceItem)
     private readonly itemsRepository: Repository<ServiceItem>,
+    private readonly auditService: AuditService,
   ) {}
 
   findAll(includeInactive = false): Promise<ServiceItem[]> {
@@ -41,8 +43,19 @@ export class CatalogService {
       .getMany();
   }
 
-  async create(dto: CreateServiceItemDto): Promise<ServiceItem> {
-    return this.saveUnique(
+  private prices(i: ServiceItem) {
+    return {
+      standard: i.priceStandard,
+      express: i.priceExpress,
+      sameDay: i.priceSameDay,
+    };
+  }
+
+  async create(
+    dto: CreateServiceItemDto,
+    actorId?: string,
+  ): Promise<ServiceItem> {
+    const saved = await this.saveUnique(
       this.itemsRepository.create({
         name: dto.name.trim(),
         category: dto.category ?? null,
@@ -52,13 +65,55 @@ export class CatalogService {
         sortOrder: dto.sortOrder ?? 0,
       }),
     );
+    await this.auditService.log({
+      actorId,
+      action: 'price_list.item_created',
+      entityType: 'price_list',
+      entityId: saved.id,
+      summary: `Added "${saved.name}" to the price list`,
+      details: { prices: this.prices(saved) },
+    });
+    return saved;
   }
 
-  async update(id: string, dto: UpdateServiceItemDto): Promise<ServiceItem> {
+  async update(
+    id: string,
+    dto: UpdateServiceItemDto,
+    actorId?: string,
+  ): Promise<ServiceItem> {
     const item = await this.findOne(id);
+    const before = {
+      name: item.name,
+      isActive: item.isActive,
+      prices: this.prices(item),
+    };
     Object.assign(item, dto);
     if (dto.name) item.name = dto.name.trim();
-    return this.saveUnique(item);
+    const saved = await this.saveUnique(item);
+    const after = {
+      name: saved.name,
+      isActive: saved.isActive,
+      prices: this.prices(saved),
+    };
+    if (JSON.stringify(before) !== JSON.stringify(after)) {
+      const what =
+        JSON.stringify(before.prices) !== JSON.stringify(after.prices)
+          ? 'changed prices'
+          : before.isActive !== after.isActive
+            ? after.isActive
+              ? 'shown again'
+              : 'hidden'
+            : 'edited';
+      await this.auditService.log({
+        actorId,
+        action: 'price_list.item_updated',
+        entityType: 'price_list',
+        entityId: saved.id,
+        summary: `"${saved.name}" ${what}`,
+        details: { before, after },
+      });
+    }
+    return saved;
   }
 
   private async saveUnique(item: ServiceItem): Promise<ServiceItem> {

@@ -189,6 +189,21 @@ erDiagram
   `stock_quantity` is the current level and is updated only in the same
   transaction as its ledger row (row locked), so the two never disagree.
 
+## Implemented in Phase 4 (migration `1764200000000-SecurityHardening`)
+
+- **`refresh_tokens`**: one row per issued refresh token: user, SHA-256
+  `token_hash` (the token itself is never stored), `family_id` (one per
+  login), `expires_at`, `revoked_at`, `replaced_by_id`.
+- **`audit_logs`**: append-only: actor id and name at the time, action
+  (e.g. `payment.recorded`), entity type/id, a one-sentence summary, and
+  JSON details. Written in the same transaction as payments and new orders.
+- **Indexes** on the busiest lookups: orders (created_at, status,
+  payment_status, customer_id), customers.phone, payments (order_id,
+  created_at), order_status_history.order_id, pickup/delivery
+  assigned_driver_id. Searches that use `ILIKE '%…%'` (name contains) can't
+  use a normal index. If customer/order search gets slow with real volume,
+  add a `pg_trgm` index then.
+
 ## Key design decisions
 
 - **Order is the central entity.** Items, materials, payments, invoice,

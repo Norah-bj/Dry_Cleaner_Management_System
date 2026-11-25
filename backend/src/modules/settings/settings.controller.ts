@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Throttle } from '@nestjs/throttler';
+import { RATE_LIMITS } from '../../common/rate-limits';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
@@ -37,6 +39,7 @@ export class SettingsController {
 
   @Get('public')
   @Public()
+  @Throttle({ default: RATE_LIMITS.publicRead })
   @ApiOperation({
     summary: 'Contact details, hours and time windows for the customer page',
   })

@@ -101,6 +101,7 @@ describe('OrdersService', () => {
       catalogService as never,
       settingsService as never,
       inventoryService as never,
+      { log: jest.fn().mockResolvedValue(undefined) } as never,
     );
   });
 

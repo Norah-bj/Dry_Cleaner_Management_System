@@ -6,7 +6,8 @@ Auth issues a single JWT access token (`JWT_EXPIRES_IN`, default 8h). No
 refresh-token endpoint/rotation yet, per `docs/SECURITY.md`'s target
 baseline. Users must log in again after expiry.
 
-Status: Planned (before production, per docs/deployment/DEPLOYMENT.md)
+Status: Resolved 2026-11-25 (Phase 4): 15-minute access tokens, rotating
+refresh tokens with reuse detection (`POST /auth/refresh`, `/auth/logout`).
 
 ## #2 — No user-management UI or API
 
@@ -29,7 +30,8 @@ Foundation phase, not yet started.
 CORS is done (`CORS_ORIGINS` env var, see `.env.example`) - resolved as
 of the CORS changelog entry, no longer part of this item.
 
-Status: Planned
+Status: Resolved 2026-11-25 (Phase 4): rate limiting (`@nestjs/throttler`),
+security headers (`helmet`) and a central exception filter.
 
 ## #4 — Entities and migrations still differ in naming
 
@@ -66,7 +68,8 @@ anyone can step through them. Since Phase 2, tracking returns only status,
 totals, items and the customer's first name (no phone or address). Rate
 limiting is still missing (roadmap Phase 4, KNOWN-ISSUES #3).
 
-Status: Open (found 2026-11-24)
+Status: Resolved 2026-11-25 (Phase 4): tracking is limited to 30 requests a
+minute and pickup requests to 5 per 10 minutes, per IP.
 
 ## #7 — Dashboard numbers are placeholders
 
@@ -91,3 +94,25 @@ Inventory to correct the level. Whether cancellation should restock depends
 on the cancellation policy the client hasn't set yet (CLIENT-QUESTIONS §2).
 
 Status: Open (found 2026-11-25)
+
+## #10 — Rate limits are kept in memory (one server only)
+
+The rate-limit counters live in the API process. That's correct for a single
+server (the modular-monolith plan), but if EDCMS is ever run as several
+copies behind a load balancer, each copy counts separately. Move the
+counters to a shared store (e.g. Redis) before scaling out. Also, behind a
+reverse proxy `TRUST_PROXY` must be set or every request looks like it
+comes from the proxy (roadmap Phase 6).
+
+Status: Open, by design for now (2026-11-25)
+
+## #11 — Session tokens are kept in browser storage
+
+The access and refresh tokens are stored in `localStorage`, same as the
+access token before Phase 4. A script injected into the page (XSS) could
+read them. Mitigations in place: React escapes output, access tokens last
+15 minutes, refresh tokens rotate and a replayed token ends the session.
+Moving the refresh token to an httpOnly cookie needs the frontend and API on
+the same site, so revisit once hosting is chosen (roadmap Phase 6).
+
+Status: Open, accepted for now (2026-11-25)

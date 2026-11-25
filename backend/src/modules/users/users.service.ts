@@ -9,6 +9,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as argon2 from 'argon2';
 import { User, UserRole } from './entities/user.entity';
+import { AuditService } from '../audit/audit.service';
+import { RefreshToken } from './entities/refresh-token.entity';
 import type { PublicUser, UpdateUserDto } from './dto/user.dto';
 
 export interface CreateUserInput {
@@ -42,6 +44,9 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    @InjectRepository(RefreshToken)
+    private readonly refreshTokensRepository: Repository<RefreshToken>,
+    private readonly auditService: AuditService,
   ) {}
 
   /** Case-insensitive, so logins saved before emails were lower-cased still work. */
@@ -102,7 +107,16 @@ export class UsersService {
     actor: Actor,
   ): Promise<PublicUser> {
     this.assertCanGrant(input.role, actor);
-    return toPublicUser(await this.create(input));
+    const user = await this.create(input);
+    await this.auditService.log({
+      actorId: actor.id,
+      action: 'user.created',
+      entityType: 'user',
+      entityId: user.id,
+      summary: `Created login for ${user.fullName} (${user.email}) as ${user.role}`,
+      details: { email: user.email, role: user.role },
+    });
+    return toPublicUser(user);
   }
 
   async update(
@@ -139,11 +153,46 @@ export class UsersService {
       }
     }
 
+    const before = {
+      role: user.role,
+      isActive: user.isActive,
+      fullName: user.fullName,
+    };
     if (dto.fullName !== undefined) user.fullName = dto.fullName.trim();
     if (dto.phone !== undefined) user.phone = dto.phone;
     if (dto.role !== undefined) user.role = dto.role;
     if (dto.isActive !== undefined) user.isActive = dto.isActive;
-    return toPublicUser(await this.usersRepository.save(user));
+    const saved = await this.usersRepository.save(user);
+    // A deactivated login is signed out everywhere, immediately.
+    if (before.isActive && !saved.isActive) await this.revokeSessions(saved.id);
+
+    const changes: string[] = [];
+    if (before.role !== saved.role)
+      changes.push(`role ${before.role} → ${saved.role}`);
+    if (before.isActive !== saved.isActive)
+      changes.push(saved.isActive ? 'reactivated' : 'deactivated');
+    if (before.fullName !== saved.fullName)
+      changes.push(`renamed from ${before.fullName}`);
+    if (dto.phone !== undefined) changes.push('phone updated');
+    if (changes.length > 0) {
+      await this.auditService.log({
+        actorId: actor.id,
+        action:
+          before.role !== saved.role ? 'user.role_changed' : 'user.updated',
+        entityType: 'user',
+        entityId: saved.id,
+        summary: `${saved.fullName}: ${changes.join(', ')}`,
+        details: {
+          before,
+          after: {
+            role: saved.role,
+            isActive: saved.isActive,
+            fullName: saved.fullName,
+          },
+        },
+      });
+    }
+    return toPublicUser(saved);
   }
 
   async resetPassword(
@@ -155,6 +204,25 @@ export class UsersService {
     this.assertCanManage(user, actor);
     user.passwordHash = await argon2.hash(password);
     await this.usersRepository.save(user);
+    // A new password ends every existing session for that person.
+    await this.revokeSessions(user.id);
+    await this.auditService.log({
+      actorId: actor.id,
+      action: 'user.password_reset',
+      entityType: 'user',
+      entityId: user.id,
+      summary: `Set a new password for ${user.fullName}`,
+    });
+  }
+
+  /** Revokes all of a user's refresh tokens (signs them out on every device). */
+  async revokeSessions(userId: string): Promise<void> {
+    await this.refreshTokensRepository
+      .createQueryBuilder()
+      .update()
+      .set({ revokedAt: () => 'now()' })
+      .where('user_id = :userId AND revoked_at IS NULL', { userId })
+      .execute();
   }
 
   private async getOrThrow(id: string): Promise<User> {

@@ -1,5 +1,40 @@
 # Changelog
 
+## 2026-11-25 (Phase 4: security hardening)
+
+**Phase:** Roadmap Phase 4
+
+Brings the API up to `docs/SECURITY.md`. (Phase 4's "remove sample-data
+fallbacks" and "driver feed needs a login" were already done in #27/#29.)
+
+- **Sessions**: access tokens now last 15 minutes (`JWT_EXPIRES_IN`, was
+  8h). New rotating refresh tokens (`POST /auth/refresh`, 30 days,
+  `REFRESH_TOKEN_TTL_DAYS`): single use, only a hash stored, and replaying
+  an old one ends that whole session. `POST /auth/logout` ends a session.
+  Deactivating a login or resetting its password signs that person out
+  everywhere. The frontend renews tokens on its own, so staff stay signed
+  in; logins from before this change are sent to the sign-in page once.
+- **Rate limiting** per IP (`@nestjs/throttler`): 10 login attempts/min,
+  30 tracking lookups/min, 5 public pickup requests per 10 min, generous
+  limit elsewhere (the whole shop shares one IP). Returns 429.
+- **Security headers** (`helmet`) and `TRUST_PROXY` support for hosting.
+- **Central error handler**: every error uses the documented shape;
+  unexpected errors never expose stack traces or SQL; constraint
+  violations return 409/400 instead of 500.
+- **Audit log** (`GET /api/v1/audit-logs`, Settings → Activity Log):
+  payments, new orders, status changes, order edits, staff
+  create/role/deactivate/password reset, price list changes, settings
+  changes and stock counts, with who did it and when.
+- **Indexes** on the busiest order, customer, payment and driver lookups.
+- Removed the unused pickup/delivery mock files. The remaining mock files
+  are used only by Reports (Phase 5).
+- New dependencies: `@nestjs/throttler` 6.8.0, `helmet` 8.3.0 (nothing
+  in the stack did either job).
+- Migration `1764200000000-SecurityHardening` (run, revert, re-run tested;
+  no drift).
+
+---
+
 ## 2026-11-25 (Phase 3: inventory)
 
 **Phase:** Roadmap Phase 3

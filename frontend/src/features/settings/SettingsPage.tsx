@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, ChevronRight, Clock, DollarSign, Plus, Users, Wallet } from 'lucide-react';
+import { Building2, ChevronRight, Clock, DollarSign, History, Plus, Users, Wallet } from 'lucide-react';
+import { ActivityLogSection } from './ActivityLogSection';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -34,13 +35,14 @@ import {
  * time windows, discount policy - is entered here and stored in the
  * database. Nothing is pre-filled with guessed numbers.
  */
-type Section = 'BUSINESS' | 'PRICING' | 'PAYMENTS' | 'HOURS';
+type Section = 'BUSINESS' | 'PRICING' | 'PAYMENTS' | 'HOURS' | 'ACTIVITY';
 
 const NAV_ITEMS: { id: Section; icon: React.ElementType; label: string; description: string }[] = [
   { id: 'BUSINESS', icon: Building2, label: 'Business Details', description: 'Name, phone, WhatsApp, address' },
   { id: 'PRICING', icon: DollarSign, label: 'Services & Prices', description: 'Your price list per speed' },
   { id: 'PAYMENTS', icon: Wallet, label: 'Payments & Charges', description: 'Methods, materials, discounts' },
   { id: 'HOURS', icon: Clock, label: 'Hours & Time Windows', description: 'Opening hours, pickup windows' },
+  { id: 'ACTIVITY', icon: History, label: 'Activity Log', description: 'Who did what, and when' },
 ];
 
 const TIERS: ApiServiceTier[] = ['STANDARD', 'EXPRESS', 'SAME_DAY'];
@@ -590,6 +592,7 @@ export function SettingsPage() {
           {error && <LoadError message={error} onRetry={() => void load()} />}
           {!settings && !error && <p className="text-sm text-text-muted">Loading settings…</p>}
           {active === 'PRICING' && <PricingSection />}
+          {active === 'ACTIVITY' && <ActivityLogSection />}
           {settings && active === 'BUSINESS' && <BusinessSection settings={settings} onSaved={setSettings} />}
           {settings && active === 'PAYMENTS' && <PaymentsSection settings={settings} onSaved={setSettings} />}
           {settings && active === 'HOURS' && <HoursSection settings={settings} onSaved={setSettings} />}

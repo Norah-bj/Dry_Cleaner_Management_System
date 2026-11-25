@@ -98,6 +98,10 @@ Depends on: Phase 2 (staff accounts for "who recorded it").
 Goal: nothing the staff sees is fake, and the system meets
 `docs/SECURITY.md`.
 
+Status (2026-11-25): built in the Phase 4 PR, waiting for merge. The
+sample-data fallbacks and the driver login were done earlier (#27, #29).
+Reports keeps its sample data until Phase 5.
+
 - [ ] Remove the mock-store fallbacks from wired pages. Show a clear
       error/offline state instead of sample data.
 - [ ] Delete the `frontend/src/mock/` stores once no page imports them.

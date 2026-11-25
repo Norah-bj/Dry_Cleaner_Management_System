@@ -1,4 +1,5 @@
 import {
+  Index,
   Column,
   CreateDateColumn,
   Entity,
@@ -20,6 +21,7 @@ export enum PickupStatus {
 }
 
 @Entity('pickup_requests')
+@Index('IDX_pickup_requests_driver', ['assignedDriverId'])
 export class PickupRequest {
   @PrimaryGeneratedColumn('uuid')
   id: string;

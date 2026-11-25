@@ -26,5 +26,6 @@ export interface AuthUser {
 /** Shape of POST /api/v1/auth/login's response. */
 export interface LoginResponse {
   accessToken: string;
+  refreshToken: string;
   user: AuthUser;
 }

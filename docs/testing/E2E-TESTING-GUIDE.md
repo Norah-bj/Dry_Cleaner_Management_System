@@ -31,7 +31,12 @@ Run from `backend/` unless noted. You need PostgreSQL running and
   `test/logistics-driver.e2e-spec.ts`, `test/settings-staff.e2e-spec.ts`
   (settings, price list, server-side pricing, discounts, staff accounts),
   `test/inventory.e2e-spec.ts` (stock never negative, order packaging usage
-  and rollback, history, low-stock list).
+  and rollback, history, low-stock list), `test/security.e2e-spec.ts`
+  (refresh rotation and reuse detection, logout, sign-out on deactivation,
+  security headers, error shape, audit log, rate limits).
+- Rate limiting is switched off for the E2E run (`RATE_LIMIT_ENABLED=false`
+  in `test/setup/e2e-env.ts`) because the tests sign in many times from one
+  IP. `security.e2e-spec.ts` switches it on to test the limits themselves.
 
 ### Smoke test (`npm run test:smoke`)
 
@@ -142,7 +147,20 @@ Reports, which is marked "Preview only" until Phase 5.
 23. Sign in as laundry staff: Inventory is visible but read-only. As a
     receptionist: Inventory isn't in the menu.
 
-### F. Server down
+### F. Security (Phase 4)
 
-24. Stop the backend and reload pages: each shows the red error message.
+25. **Stay signed in**: leave the app open for more than 15 minutes, then
+    click around: it keeps working (the access token renews on its own).
+26. **Activity Log**: Settings → Activity Log lists the payments, status
+    changes, price changes and staff changes you made above, with your name.
+27. **Deactivate**: sign in as a receptionist in another browser, deactivate
+    them as the owner, then click something as the receptionist within 15
+    minutes: once their access token expires they're sent to sign-in and
+    can't get back in.
+28. **Password guessing**: enter a wrong password 11 times in a minute: the
+    11th attempt says too many requests.
+
+### G. Server down
+
+29. Stop the backend and reload pages: each shows the red error message.
     The customer page's pickup form says it couldn't send the request.
