@@ -65,6 +65,21 @@ Verified with a live smoke test on the scratch database
 change, partial and full payment, invoice row written, public tracking,
 pickup, delivery). Remaining naming drift and lint backlog are logged in
 `KNOWN-ISSUES.md` (#4, #5).
+
+---
+
+## 2026-11-11 (Roadmap to a working product)
+
+Added `docs/ROADMAP.md`: seven phases from the current code to go-live
+(merge built work and get client answers → staff accounts and real
+configuration → inventory backend → remove mock data and harden →
+reports, receipts and notifications → deployment → handover). No scope
+added; every item comes from REQUIREMENTS.md, SECURITY.md or
+DEPLOYMENT.md. Updated `CLAUDE.md` "Current phase", which still said
+Phase 0 with no code, to point to the roadmap.
+
+---
+
 ## 2026-09-16 (Stage D — End-to-End Testing & Scenario Verification)
 
 **Phase:** 1 — Quality Assurance & Scenario Verification (Stage D)
