@@ -99,6 +99,11 @@ additions — they require a separate scoping decision.
 
 ## Open questions for the client (do not assume answers)
 
+Prices, payment methods, operating hours and time windows (questions 2–4)
+are entered by the owner in Settings (roadmap Phase 2, BUSINESS-RULES #10),
+so they're no longer blocking. The remaining questions, in plain language
+for the owner, are in [CLIENT-QUESTIONS.md](CLIENT-QUESTIONS.md).
+
 1. **EBM:** what EBM device/software is in use? Does it expose any
    integration point (API, file export, printer protocol)? How are receipts
    currently generated for tax purposes?

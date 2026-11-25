@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-24 (Client question sheet)
+
+Added `docs/requirements/CLIENT-QUESTIONS.md`: the open questions the
+system can't answer by itself, in plain language for the owner: EBM,
+cancellations/refunds/damage/uncollected clothes, delivery area and fees,
+drivers' phones, customer messages/WhatsApp, and existing records. Prices,
+payment methods, hours, time windows and staff are not asked: the owner
+enters them in Settings (Phase 2, PR #29). No business rules changed.
+
+---
+
 ## 2026-11-24 (Real tests and no fake data: Stage C/D cleanup)
 
 **Phase:** Roadmap Phase 1 (merge what's built)
