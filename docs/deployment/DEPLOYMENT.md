@@ -11,9 +11,9 @@ bar is known in advance and isn't improvised at the end.
 - [ ] Secrets via environment variables, not committed anywhere
 - [ ] Centralized logging
 - [ ] Error monitoring
-- [ ] Rate limiting active on public endpoints
-- [ ] Security headers active (see SECURITY.md)
-- [ ] Database indexes on hot query paths (order lookup, customer search)
+- [x] Rate limiting active on public endpoints (built in Phase 4; keep `RATE_LIMIT_ENABLED=true`, set `TRUST_PROXY` behind a proxy)
+- [x] Security headers active (see SECURITY.md) (API: helmet. Set the frontend's own headers, incl. CSP, on its host)
+- [x] Database indexes on hot query paths (order lookup, customer search)
 - [ ] Production build of frontend and backend, not dev servers
 - [ ] Basic performance check under expected load
 

@@ -57,16 +57,18 @@ are restricted.
 
 | Endpoint | Who | Notes |
 |---|---|---|
-| `POST /auth/login` | public | |
+| `POST /auth/login` | public, 10/min per IP | Returns a 15-minute `accessToken`, a `refreshToken` and the user. |
+| `POST /auth/refresh` | public, 30/min per IP | Body `{ refreshToken }`. Single use: returns a new pair. Replaying a used token revokes that session. |
+| `POST /auth/logout` | public | Body `{ refreshToken }`. Ends that session (204). |
 | `GET/POST/PATCH /customers…` | staff (create/edit: owner, manager, receptionist, cashier) | |
 | `POST /orders` | owner, manager, receptionist, cashier | Lines send `serviceItemId` + `quantity`; **the server prices them** from the price list at the order's speed. Material charges come from Settings. A client-sent price is rejected (400). |
 | `PATCH /orders/:id` | owner, manager, receptionist | Discount follows the Settings discount policy. |
 | `PATCH /orders/:id/status` | staff | Logged with who and when. |
-| `GET /orders/track/:orderNumber` | public | Returns status, totals, balance, items and the customer's **first name only**. No phone or address. |
+| `GET /orders/track/:orderNumber` | public, 30/min per IP | Returns status, totals, balance, items and the customer's **first name only**. No phone or address. |
 | `POST /orders/:orderId/payments` | owner, manager, receptionist, cashier | Method must be enabled in Settings; amount may not exceed the balance. |
 | `GET /payments`, `GET /payments/summary` | staff | |
 | `POST /pickups` | owner, manager, receptionist | Staff scheduling for an existing customer. |
-| `POST /pickups/request` | public | Customer page: name/phone/address; server reuses or registers the customer; returns only the reference. |
+| `POST /pickups/request` | public, 5 per 10 min per IP | Customer page: name/phone/address; server reuses or registers the customer; returns only the reference. |
 | `PATCH /pickups/:id`, `PATCH /deliveries/:id` | staff; drivers only on **their own** jobs and only `status`/`notes` | `assignedDriverId` must be an active driver login; the name is taken from the account. |
 | `POST /deliveries` | owner, manager, receptionist | |
 | `GET /drivers/me/tasks` | driver | The signed-in driver's jobs: no prices, totals or payment status (business rule #8). |
@@ -74,11 +76,12 @@ are restricted.
 | `GET /settings` | staff | |
 | `PATCH /settings` | owner, manager | Partial update (one section at a time). |
 | `GET /settings/setup-status` | owner, manager | First-run checklist. |
-| `GET /settings/public` | public | Name, phone, WhatsApp, address, hours, time windows, turnaround. |
+| `GET /settings/public` | public, 60/min per IP | Name, phone, WhatsApp, address, hours, time windows, turnaround. |
 | `GET /catalog/items` | staff | `?includeInactive=true` includes hidden items. |
 | `POST /catalog/items`, `PATCH /catalog/items/:id` | owner, manager | Items are hidden (`isActive: false`), never deleted. Duplicate name = 409. |
-| `GET /catalog/public` | public | Active price list. |
+| `GET /catalog/public` | public, 60/min per IP | Active price list. |
 | `GET /users`, `POST /users`, `PATCH /users/:id`, `POST /users/:id/reset-password` | owner, manager | Only a Super Admin can grant or change the Super Admin role. Nobody can deactivate themselves or change their own role; the last active Super Admin can't be removed. |
+| `GET /audit-logs` | owner, manager | Newest first; `?entityType=payment|order|user|price_list|settings|inventory`. Entries are never edited or deleted. |
 | `GET /users/drivers` | owner, manager, receptionist, cashier | Active drivers, for assignment. |
 | `GET /inventory/items`, `GET /inventory/items/:id`, `GET /inventory/summary`, `GET /inventory/transactions` | owner, manager, laundry staff | Items carry a computed `status` (GOOD/LOW/OUT); `?status=LOW` lists the alert items. |
 | `POST /inventory/items`, `PATCH /inventory/items/:id` | owner, manager | Optional `openingStock` on create. Quantity is never edited directly. Hidden, never deleted. |
@@ -117,8 +120,11 @@ are restricted.
 }
 ```
 
-Produced centrally by a NestJS exception filter — individual controllers do
-not hand-roll error responses.
+Produced centrally by a NestJS exception filter (`src/common/filters/all-exceptions.filter.ts`).
+Unexpected errors return only "Internal server error" (details are logged on
+the server). Database constraint violations become 409/400, not 500. Too many
+requests return 429 in the same shape. Every response also carries
+`X-RateLimit-*` headers.
 
 ## Pagination
 

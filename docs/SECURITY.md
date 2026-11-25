@@ -3,11 +3,16 @@
 This is a real business system handling customer data and payments. Minimum
 bar, all required before Phase 1 is considered production-ready:
 
-**Status as of the auth phase:** password hashing (argon2), JWT
-authentication, server-side authorization (global `JwtAuthGuard` +
-`RolesGuard`), and CORS restriction (`CORS_ORIGINS`) are implemented.
-Refresh-token rotation, rate limiting, secure headers, and audit logging
-are not yet built — see `docs/KNOWN-ISSUES.md`. Don't assume anything
+**Status as of Phase 4 (2026-11-25):** all items below are implemented:
+password hashing (argon2); 15-minute JWT access tokens with rotating refresh
+tokens (only a SHA-256 hash is stored; a replayed token revokes that whole
+session; deactivation or a password reset signs the user out everywhere);
+server-side authorization (global `JwtAuthGuard` + `RolesGuard`); DTO
+validation; CORS restriction; per-IP rate limiting (tight on login and the
+public customer endpoints, `src/common/rate-limits.ts`); security headers
+(helmet); a central exception filter that never leaks stack traces or SQL;
+and an append-only audit log. Known trade-offs: KNOWN-ISSUES #10 (in-memory
+rate limits) and #11 (tokens in browser storage). Don't assume anything
 below is done just because it's listed here; this file is the target
 bar, not a status report.
 
