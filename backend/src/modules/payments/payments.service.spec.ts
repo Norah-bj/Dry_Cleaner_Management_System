@@ -5,10 +5,10 @@ import { Order, PaymentStatus } from '../orders/entities/order.entity';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
-  let paymentsRepo: any;
-  let invoicesRepo: any;
-  let ordersRepo: any;
-  let dataSource: any;
+  let paymentsRepo: Record<string, jest.Mock>;
+  let invoicesRepo: Record<string, jest.Mock>;
+  let ordersRepo: Record<string, jest.Mock>;
+  let dataSource: Record<string, jest.Mock>;
 
   beforeEach(() => {
     paymentsRepo = {
@@ -54,10 +54,10 @@ describe('PaymentsService', () => {
     };
 
     service = new PaymentsService(
-      paymentsRepo,
-      invoicesRepo,
-      ordersRepo,
-      dataSource,
+      paymentsRepo as never,
+      invoicesRepo as never,
+      ordersRepo as never,
+      dataSource as never,
     );
   });
 

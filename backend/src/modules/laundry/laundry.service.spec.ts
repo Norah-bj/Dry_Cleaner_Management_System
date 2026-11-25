@@ -3,13 +3,13 @@ import { Order, OrderStatus } from '../orders/entities/order.entity';
 
 describe('LaundryService', () => {
   let service: LaundryService;
-  let ordersRepo: any;
+  let ordersRepo: Record<string, jest.Mock>;
 
   beforeEach(() => {
     ordersRepo = {
       createQueryBuilder: jest.fn(),
     };
-    service = new LaundryService(ordersRepo);
+    service = new LaundryService(ordersRepo as never);
   });
 
   describe('getBoard', () => {

@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { CheckCircle, MessageCircle, Package, Phone, Search, Shirt, Truck } from 'lucide-react';
-import { mockStore } from '../../mock/mock-store';
+import { CheckCircle, MessageCircle, Package, Phone, Search, Shirt, Loader2 } from 'lucide-react';
+import { ApiError } from '../../lib/api-client';
+import { trackOrder } from '../../services/orders';
+import { requestPickup } from '../../services/logistics';
 
 /**
  * Customer Mobile Web — /customer
@@ -8,10 +10,10 @@ import { mockStore } from '../../mock/mock-store';
  * - Track their order by order number
  * - Request a pickup (form)
  * - WhatsApp click-to-chat
- * No auth required. Intentionally simple — phone-first layout.
+ * No auth required. Phone-first layout.
  */
 
-const BUSINESS_PHONE = '0788000000'; // TODO: pull from settings API
+const BUSINESS_PHONE = '0788000000';
 const WHATSAPP_URL = `https://wa.me/250${BUSINESS_PHONE.slice(1)}?text=Hello%20EBENEZER%2C%20I%20have%20a%20question.`;
 
 const STAGE_LABELS: Record<string, string> = {
@@ -26,7 +28,17 @@ const STAGE_LABELS: Record<string, string> = {
   DELIVERED: 'Delivered ✓',
 };
 
-const STAGE_ORDER = ['RECEIVED', 'SORTING', 'WASHING', 'DRYING', 'IRONING', 'QUALITY_CHECK', 'PACKING', 'READY', 'DELIVERED'];
+const STAGE_ORDER = [
+  'RECEIVED',
+  'SORTING',
+  'WASHING',
+  'DRYING',
+  'IRONING',
+  'QUALITY_CHECK',
+  'PACKING',
+  'READY',
+  'DELIVERED',
+];
 
 function getProgress(stage: string) {
   const idx = STAGE_ORDER.indexOf(stage);
@@ -37,18 +49,48 @@ function getProgress(stage: string) {
 function OrderTracker() {
   const [query, setQuery] = useState('');
   const [searched, setSearched] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [order, setOrder] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const order = searched && query.trim()
-    ? mockStore.getOrderById(query.trim().toUpperCase())
-    : null;
+  async function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    if (!query.trim()) return;
+
+    setLoading(true);
+    setSearched(true);
+    setError(null);
+
+    try {
+      const res = await trackOrder(query.trim().toUpperCase());
+      if (res) {
+        setOrder({
+          orderNumber: res.orderNumber,
+          customerName: res.customer?.name ?? 'Customer',
+          currentStage: res.status,
+          expectedCompletion: res.expectedCompletion,
+          totalAmount: Number(res.total),
+          amountPaid: Number(res.amountPaid),
+          balanceDue: Number(res.balance),
+          paymentStatus: res.paymentStatus,
+          items: res.items,
+        });
+      } else {
+        setOrder(null);
+      }
+    } catch (err) {
+      setOrder(null);
+      // 404 = no such order (shown below as "not found"); anything else is a real failure.
+      if (!(err instanceof ApiError && err.status === 404)) {
+        setError("We couldn't check your order right now. Please try again in a moment, or contact us.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const progress = order ? getProgress(order.currentStage) : 0;
   const isReady = order?.currentStage === 'READY' || order?.currentStage === 'DELIVERED';
-
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    setSearched(true);
-  }
 
   return (
     <div className="space-y-4">
@@ -58,20 +100,30 @@ function OrderTracker() {
           <input
             type="text"
             value={query}
-            onChange={(e) => { setQuery(e.target.value); setSearched(false); }}
-            placeholder="Order number e.g. EC-001245"
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSearched(false);
+            }}
+            placeholder="Order number e.g. ORD-2026-00001"
             className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-3 text-sm text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
           />
         </div>
         <button
           type="submit"
-          className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 active:scale-95 transition-all"
+          disabled={loading}
+          className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 active:scale-95 transition-all flex items-center gap-1.5"
         >
-          Track
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Track'}
         </button>
       </form>
 
-      {searched && !order && query && (
+      {error && (
+        <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-center text-sm text-rose-800">
+          {error}
+        </div>
+      )}
+
+      {searched && !order && !loading && !error && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 text-center text-sm text-slate-500">
           <Package className="mx-auto mb-2 h-8 w-8 text-slate-300" />
           Order <strong>{query.toUpperCase()}</strong> not found.<br />
@@ -80,8 +132,7 @@ function OrderTracker() {
       )}
 
       {order && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
-          {/* Header */}
+        <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4 shadow-sm">
           <div className="flex items-start justify-between gap-2">
             <div>
               <div className="text-xs text-slate-400 font-mono">{order.orderNumber}</div>
@@ -94,51 +145,39 @@ function OrderTracker() {
             )}
           </div>
 
-          {/* Progress bar */}
           <div>
             <div className="mb-1.5 flex justify-between text-xs text-slate-500">
               <span>The Clean Journey</span>
-              <span>{progress}%</span>
+              <span className="font-bold text-emerald-600">{STAGE_LABELS[order.currentStage] || order.currentStage}</span>
             </div>
-            <div className="h-2 w-full rounded-full bg-slate-100">
+            <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
               <div
-                className="h-2 rounded-full bg-emerald-500 transition-all duration-700"
+                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
                 style={{ width: `${progress}%` }}
               />
             </div>
           </div>
 
-          {/* Current stage */}
-          <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-center">
-            <div className="text-xs text-emerald-600 font-medium uppercase tracking-wider">Current stage</div>
-            <div className="mt-1 text-base font-bold text-emerald-800">
-              {STAGE_LABELS[order.currentStage] ?? order.currentStage}
+          <div className="grid grid-cols-2 gap-2 text-xs border-t border-slate-100 pt-3">
+            <div>
+              <span className="text-slate-400 block">Balance Owed:</span>
+              <span className={`font-mono font-bold ${order.balanceDue > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                {order.balanceDue > 0 ? `${order.balanceDue.toLocaleString()} RWF` : 'Paid in Full ✓'}
+              </span>
             </div>
-          </div>
-
-          {/* Details */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-lg bg-slate-50 p-3">
-              <div className="text-xs text-slate-400 mb-1">Items</div>
-              <div className="font-semibold text-slate-700">
-                {order.items.reduce((a, i) => a + i.quantity, 0)} garments
+            {order.expectedCompletion && (
+              <div>
+                <span className="text-slate-400 block">Ready by:</span>
+                <span className="font-semibold text-slate-700">
+                  {new Date(order.expectedCompletion).toLocaleDateString([], {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                  })}
+                </span>
               </div>
-            </div>
-            <div className="rounded-lg bg-slate-50 p-3">
-              <div className="text-xs text-slate-400 mb-1">Expected</div>
-              <div className="font-semibold text-slate-700 text-xs">
-                {new Date(order.expectedCompletion).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-              </div>
-            </div>
+            )}
           </div>
-
-          {/* Balance due */}
-          {order.balanceDue > 0 && (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm">
-              <span className="font-medium text-rose-800">Balance due on collection: </span>
-              <span className="font-bold font-mono text-rose-700">{order.balanceDue.toLocaleString()} RWF</span>
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -146,34 +185,48 @@ function OrderTracker() {
 }
 
 // ── Pickup Request Form ───────────────────────────────────────────────────────
-function PickupRequestForm() {
+function PickupForm() {
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [timeSlot, setTimeSlot] = useState('Morning (08:00 - 12:00)');
+  const [notes, setNotes] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState({ name: '', phone: '', address: '', date: '', notes: '' });
+  const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  function handleChange(key: keyof typeof form, val: string) {
-    setForm((f) => ({ ...f, [key]: val }));
-  }
-
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // In mock mode: just show success
-    setSubmitted(true);
+    if (!name || !phone || !address) return;
+
+    setLoading(true);
+
+    setSubmitError(null);
+    try {
+      await requestPickup({ name, phone, address, scheduledDate: date, timeSlot, notes: notes || undefined });
+      setSubmitted(true);
+    } catch {
+      setSubmitError("We couldn't send your request. Please try again, or call or WhatsApp us.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (submitted) {
     return (
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center space-y-2">
-        <CheckCircle className="mx-auto h-10 w-10 text-emerald-500" />
-        <div className="font-bold text-emerald-800">Pickup Requested!</div>
-        <div className="text-sm text-emerald-700">
-          We'll contact you at <strong>{form.phone}</strong> to confirm your pickup time.
-        </div>
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center space-y-3">
+        <CheckCircle className="mx-auto h-10 w-10 text-emerald-600" />
+        <h3 className="font-bold text-emerald-800">Pickup Request Received!</h3>
+        <p className="text-xs text-emerald-700">
+          Our driver will contact you at <strong>{phone}</strong> before arriving on{' '}
+          <strong>{new Date(date).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' })}</strong>.
+        </p>
         <button
-          type="button"
-          onClick={() => { setSubmitted(false); setForm({ name: '', phone: '', address: '', date: '', notes: '' }); }}
-          className="mt-2 text-xs text-emerald-600 underline"
+          onClick={() => setSubmitted(false)}
+          className="mt-2 text-xs font-semibold text-emerald-700 underline"
         >
-          Submit another request
+          Request another pickup
         </button>
       </div>
     );
@@ -181,110 +234,156 @@ function PickupRequestForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      {[
-        { key: 'name', label: 'Full name', type: 'text', placeholder: 'Your name', required: true },
-        { key: 'phone', label: 'Phone number', type: 'tel', placeholder: '07XX XXX XXX', required: true },
-        { key: 'address', label: 'Pickup address', type: 'text', placeholder: 'Where should we collect?', required: true },
-        { key: 'date', label: 'Preferred date', type: 'date', placeholder: '', required: true },
-      ].map(({ key, label, type, placeholder, required }) => (
-        <div key={key}>
-          <label className="mb-1 block text-xs font-medium text-slate-600">{label}</label>
-          <input
-            type={type}
-            required={required}
-            placeholder={placeholder}
-            value={form[key as keyof typeof form]}
-            onChange={(e) => handleChange(key as keyof typeof form, e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-          />
-        </div>
-      ))}
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">Notes (optional)</label>
-        <textarea
-          rows={2}
-          placeholder="Special instructions, bag count, etc."
-          value={form.notes}
-          onChange={(e) => handleChange('notes', e.target.value)}
-          className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+        <label className="block text-xs font-semibold text-slate-700 mb-1">Your Name *</label>
+        <input
+          type="text"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Marie Claire"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:outline-none"
         />
       </div>
+
+      <div>
+        <label className="block text-xs font-semibold text-slate-700 mb-1">Phone Number (MTN / Airtel) *</label>
+        <input
+          type="tel"
+          required
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="0788 123 456"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:outline-none"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-semibold text-slate-700 mb-1">Pickup Address (Nyamata & Bugesera) *</label>
+        <input
+          type="text"
+          required
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="e.g. Nyamata City Center, Near Hospital"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:outline-none"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 mb-1">Preferred Date</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 focus:border-emerald-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 mb-1">Time Slot</label>
+          <select
+            value={timeSlot}
+            onChange={(e) => setTimeSlot(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 focus:border-emerald-500 focus:outline-none"
+          >
+            <option>Morning (08:00 - 12:00)</option>
+            <option>Afternoon (13:00 - 17:00)</option>
+            <option>Evening (17:00 - 19:00)</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-semibold text-slate-700 mb-1">Notes / Garment Types</label>
+        <textarea
+          rows={2}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="e.g. 3 suits and 2 dresses, please bring bags"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:outline-none"
+        />
+      </div>
+
+      {submitError && (
+        <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-center text-xs text-rose-800">
+          {submitError}
+        </div>
+      )}
+
       <button
         type="submit"
-        className="w-full rounded-xl bg-emerald-600 py-3.5 text-sm font-bold text-white hover:bg-emerald-700 active:scale-[0.98] transition-all"
+        disabled={loading}
+        className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center gap-2"
       >
-        Request Pickup
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Request Pickup'}
       </button>
     </form>
   );
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
-type Tab = 'TRACK' | 'PICKUP';
-
 export function CustomerMobilePage() {
-  const [tab, setTab] = useState<Tab>('TRACK');
+  const [activeTab, setActiveTab] = useState<'track' | 'pickup'>('track');
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <div className="bg-emerald-700 px-4 pb-6 pt-8 text-white text-center">
-        <div className="flex items-center justify-center gap-2 mb-1">
-          <Shirt className="h-6 w-6" />
-          <span className="text-lg font-bold tracking-tight">EBENEZER</span>
+    <div className="min-h-screen bg-slate-50 pb-16">
+      {/* Brand Header */}
+      <div className="bg-emerald-700 px-4 pt-8 pb-6 text-white text-center">
+        <div className="flex justify-center mb-2">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
+            <Shirt className="h-6 w-6 text-white" />
+          </div>
         </div>
-        <div className="text-xs text-emerald-200">Dry Cleaner — Nyamata, Bugesera</div>
+        <h1 className="text-xl font-bold">EBENEZER Dry Cleaner</h1>
+        <p className="text-xs text-emerald-100 mt-1">Professional Laundry & Dry Cleaning • Nyamata</p>
 
-        {/* Hours */}
-        <div className="mt-4 rounded-lg bg-white/10 px-4 py-2 text-xs text-emerald-100 inline-block">
-          Mon–Sat 7:00 – 19:00 &nbsp;·&nbsp; Sun 9:00 – 15:00
-        </div>
-      </div>
-
-      {/* Tab bar */}
-      <div className="sticky top-0 z-10 flex bg-white border-b border-slate-200 shadow-sm">
-        {([
-          { id: 'TRACK', icon: Search, label: 'Track Order' },
-          { id: 'PICKUP', icon: Truck, label: 'Request Pickup' },
-        ] as const).map(({ id, icon: Icon, label }) => (
+        {/* Tab switch */}
+        <div className="mt-5 grid grid-cols-2 rounded-xl bg-emerald-900/40 p-1 text-xs font-semibold">
           <button
-            key={id}
-            type="button"
-            onClick={() => setTab(id)}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors ${
-              tab === id
-                ? 'border-b-2 border-emerald-600 text-emerald-700'
-                : 'text-slate-400 hover:text-slate-600'
+            onClick={() => setActiveTab('track')}
+            className={`rounded-lg py-2 transition-all ${
+              activeTab === 'track' ? 'bg-white text-emerald-800 shadow' : 'text-emerald-200 hover:text-white'
             }`}
           >
-            <Icon className="h-4 w-4" />
-            {label}
+            Track Order
           </button>
-        ))}
+          <button
+            onClick={() => setActiveTab('pickup')}
+            className={`rounded-lg py-2 transition-all ${
+              activeTab === 'pickup' ? 'bg-white text-emerald-800 shadow' : 'text-emerald-200 hover:text-white'
+            }`}
+          >
+            Request Pickup
+          </button>
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="mx-auto max-w-md px-4 py-6">
-        {tab === 'TRACK' && <OrderTracker />}
-        {tab === 'PICKUP' && <PickupRequestForm />}
-      </div>
+      {/* Main Content */}
+      <div className="p-4 max-w-md mx-auto">
+        {activeTab === 'track' && <OrderTracker />}
+        {activeTab === 'pickup' && <PickupForm />}
 
-      {/* Bottom CTA */}
-      <div className="mx-auto max-w-md px-4 pb-8 space-y-3">
-        <a
-          href={WHATSAPP_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366] py-3.5 text-sm font-bold text-white hover:opacity-90 active:scale-[0.98] transition-all"
-        >
-          <MessageCircle className="h-5 w-5" /> Chat on WhatsApp
-        </a>
-        <a
-          href={`tel:${BUSINESS_PHONE}`}
-          className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.98] transition-all"
-        >
-          <Phone className="h-4 w-4" /> Call {BUSINESS_PHONE}
-        </a>
+        {/* Direct Contact CTAs */}
+        <div className="mt-8 border-t border-slate-200 pt-6 space-y-2.5 text-center">
+          <div className="text-xs text-slate-500 font-medium">Need immediate assistance?</div>
+          <div className="grid grid-cols-2 gap-2">
+            <a
+              href={`tel:${BUSINESS_PHONE}`}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              <Phone className="h-3.5 w-3.5 text-emerald-600" /> Call Shop
+            </a>
+            <a
+              href={WHATSAPP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1.5 rounded-xl bg-[#25D366] py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#20bd5a]"
+            >
+              <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   );

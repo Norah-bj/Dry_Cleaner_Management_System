@@ -1,12 +1,17 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { OrderSlipModal } from '../../components/orders/OrderSlipModal';
 import { MASTER_GARMENTS, MASTER_MATERIALS } from '../../mock/mock-data';
-import { mockStore } from '../../mock/mock-store';
+import { createCustomer, listCustomers } from '../../services/customers';
+import { createOrder as apiCreateOrder, getOrder } from '../../services/orders';
+import { mapApiOrderToOrder } from '../../services/order-mapper';
+import { errorMessage } from '../../lib/error-message';
+import { LoadError } from '../../components/ui/LoadError';
+import { recordOrderPayment } from '../../services/payments';
 import type { Order, PaymentMethod, ServiceTier } from '../../types/order';
 
 interface SelectedGarment {
@@ -29,32 +34,28 @@ export function NewOrderPage() {
   const navigate = useNavigate();
 
   // Step 1: Customer
-  const [customerName, setCustomerName] = useState('Jean Claude');
-  const [customerPhone, setCustomerPhone] = useState('0788123456');
-  const [customerAddress, setCustomerAddress] = useState('Nyamata Sector');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
 
   // Step 2: Garments
-  const [items, setItems] = useState<SelectedGarment[]>([
-    { garmentId: 'g1', garmentName: 'Shirt / Blouse', quantity: 2, unitPrice: 2000 },
-    { garmentId: 'g2', garmentName: 'Trouser / Pants', quantity: 1, unitPrice: 2500 },
-  ]);
+  const [items, setItems] = useState<SelectedGarment[]>([]);
   const [selectedGarmentId, setSelectedGarmentId] = useState('g3');
 
   // Step 3: Priority Service Tier
-  const [serviceTier, setServiceTier] = useState<ServiceTier>('EXPRESS');
+  const [serviceTier, setServiceTier] = useState<ServiceTier>('NORMAL');
 
   // Step 4: Packaging Materials
-  const [materials, setMaterials] = useState<SelectedMaterial[]>([
-    { materialId: 'm1', materialName: 'Garment Plastic Cover', quantity: 1, unitPrice: 300, customerProvided: false },
-    { materialId: 'm2', materialName: 'Heavy Laundry Bag', quantity: 1, unitPrice: 500, customerProvided: false },
-  ]);
+  const [materials, setMaterials] = useState<SelectedMaterial[]>([]);
 
   // Step 5: Payment & Notes
   const [discount, setDiscount] = useState(0);
-  const [payNow, setPayNow] = useState(true);
-  const [paymentAmount, setPaymentAmount] = useState(5000);
+  const [payNow, setPayNow] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('MOBILE_MONEY');
   const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Slip modal after creation
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
@@ -101,74 +102,134 @@ export function NewOrderPage() {
     setItems(items.filter((_, i) => i !== idx));
   };
 
-  const handleUpdateGarmentQty = (idx: number, delta: number) => {
+  const handleUpdateGarmentQty = (idx: number, newQty: number) => {
+    if (newQty < 1) return;
     const updated = [...items];
-    const newQty = updated[idx].quantity + delta;
-    if (newQty <= 0) {
-      handleRemoveGarment(idx);
-    } else {
-      updated[idx].quantity = newQty;
-      setItems(updated);
-    }
+    updated[idx].quantity = newQty;
+    setItems(updated);
   };
 
-  const handleToggleMaterial = (matId: string) => {
+  const handleToggleMaterialProvided = (idx: number) => {
+    const updated = [...materials];
+    updated[idx].customerProvided = !updated[idx].customerProvided;
+    setMaterials(updated);
+  };
+
+  const handleUpdateMaterialQty = (idx: number, newQty: number) => {
+    if (newQty < 1) return;
+    const updated = [...materials];
+    updated[idx].quantity = newQty;
+    setMaterials(updated);
+  };
+
+  const handleAddMaterial = (matId: string) => {
     const catalogMat = MASTER_MATERIALS.find((m) => m.id === matId);
     if (!catalogMat) return;
+    if (materials.some((m) => m.materialId === matId)) return;
 
-    const existingIdx = materials.findIndex((m) => m.materialId === matId);
-    if (existingIdx !== -1) {
-      setMaterials(materials.filter((m) => m.materialId !== matId));
-    } else {
-      setMaterials([
-        ...materials,
-        {
-          materialId: catalogMat.id,
-          materialName: catalogMat.name,
-          quantity: 1,
-          unitPrice: catalogMat.unitPrice,
-          customerProvided: false,
-        },
-      ]);
-    }
+    setMaterials([
+      ...materials,
+      {
+        materialId: catalogMat.id,
+        materialName: catalogMat.name,
+        quantity: 1,
+        unitPrice: catalogMat.unitPrice,
+        customerProvided: false,
+      },
+    ]);
   };
 
-  const handleSubmitOrder = (e: React.FormEvent) => {
+  const handleRemoveMaterial = (idx: number) => {
+    setMaterials(materials.filter((_, i) => i !== idx));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerName || items.length === 0) {
-      alert('Please select a customer and add at least one garment.');
+    if (!customerName || !customerPhone) {
+      alert('Please fill in customer name and phone');
+      return;
+    }
+    if (items.length === 0) {
+      alert('Please add at least one garment');
       return;
     }
 
-    const order = mockStore.createOrder({
-      customerId: `cust-${Date.now()}`,
-      customerName,
-      customerPhone,
-      customerAddress,
-      serviceTier,
-      items: items.map((i) => ({
-        garmentName: i.garmentName,
-        quantity: i.quantity,
-        unitPrice: i.unitPrice,
-      })),
-      materials: materials.map((m) => ({
-        name: m.materialName,
-        quantity: m.quantity,
-        unitPrice: m.unitPrice,
-        customerProvided: m.customerProvided,
-      })),
-      discount,
-      initialPayment: payNow
-        ? {
-            amount: paymentAmount,
-            method: paymentMethod,
-          }
-        : undefined,
-      notes,
-    });
+    setSubmitting(true);
+    setSubmitError(null);
 
-    setCreatedOrder(order);
-    setIsSlipOpen(true);
+    try {
+      // 1. Find the customer by phone, or register them.
+      const custSearch = await listCustomers({ search: customerPhone });
+      const existingCust = custSearch.data.find((c) => c.phone === customerPhone);
+      const customerId = existingCust
+        ? existingCust.id
+        : (
+            await createCustomer({
+              name: customerName,
+              phone: customerPhone,
+              address: customerAddress || undefined,
+            })
+          ).id;
+
+      // 2. Create the order on the server. The slip shows what the server saved.
+      const backendServiceTier = serviceTier === 'NORMAL' ? 'STANDARD' : serviceTier;
+      const created = await apiCreateOrder({
+        customerId,
+        serviceTier: backendServiceTier,
+        discount,
+        notes,
+        items: items.map((i) => ({
+          garmentName: i.garmentName,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          serviceTier: backendServiceTier,
+        })),
+        materials: materials.map((m) => ({
+          materialType: m.materialName.includes('Cover')
+            ? 'COVER'
+            : m.materialName.includes('Bag')
+              ? 'BAG'
+              : m.materialName.includes('Hanger')
+                ? 'HANGER'
+                : 'ENVELOPE',
+          quantity: m.quantity,
+          customerProvided: m.customerProvided,
+          unitCharge: m.unitPrice,
+        })),
+      });
+
+      // 3. Payment taken at intake, if any.
+      if (payNow && paymentAmount > 0) {
+        try {
+          await recordOrderPayment(created.id, {
+            amount: paymentAmount,
+            paymentMethod: paymentMethod === 'MOBILE_MONEY' ? 'MOMO' : paymentMethod,
+            notes: 'Initial intake payment',
+          });
+        } catch (err) {
+          // The order exists; only the payment failed. Say so plainly.
+          setSubmitError(
+            `Order ${created.orderNumber} was saved, but the payment was not recorded: ${errorMessage(err, 'record the payment')} Record it from the order page.`,
+          );
+        }
+      }
+
+      setCreatedOrder(mapApiOrderToOrder(await getOrder(created.id)));
+      setIsSlipOpen(true);
+    } catch (err) {
+      setSubmitError(errorMessage(err, 'save this order'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSlipClose = () => {
+    setIsSlipOpen(false);
+    if (createdOrder) {
+      navigate(`/orders/${createdOrder.id}`);
+    } else {
+      navigate('/orders');
+    }
   };
 
   return (
@@ -185,19 +246,24 @@ export function NewOrderPage() {
 
       <PageHeader
         title="New Order Intake"
-        description="Register customer garments, select service priority, and issue receipt slip."
+        description="Step-by-step customer order registration, garments inspection, packaging, and receipt generation."
       />
 
-      <form onSubmit={handleSubmitOrder} className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Main Intake Form Column */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Step 1: Customer Info */}
-          <Card className="p-4">
-            <h2 className="text-sm font-semibold mb-3 text-text">1. Customer Information</h2>
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Left 2 Cols: Wizard Steps */}
+        <div className="space-y-6 lg:col-span-2">
+          {/* Step 1: Customer Details */}
+          <Card className="p-5">
+            <h2 className="text-sm font-bold text-text mb-3 flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">
+                1
+              </span>
+              Customer Information
+            </h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-medium text-text-muted mb-1">
-                  Customer Full Name *
+                <label className="block text-xs font-semibold text-text mb-1">
+                  Customer Name *
                 </label>
                 <input
                   type="text"
@@ -208,297 +274,356 @@ export function NewOrderPage() {
                   className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-text focus:border-primary focus:outline-none"
                 />
               </div>
-
               <div>
-                <label className="block text-xs font-medium text-text-muted mb-1">
-                  Phone Number *
+                <label className="block text-xs font-semibold text-text mb-1">
+                  Phone Number (MTN / Airtel) *
                 </label>
                 <input
-                  type="text"
+                  type="tel"
                   required
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="e.g. 0788123456"
+                  placeholder="0788 123 456"
                   className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-text focus:border-primary focus:outline-none"
                 />
               </div>
-
               <div className="sm:col-span-2">
-                <label className="block text-xs font-medium text-text-muted mb-1">
-                  Address / Location
+                <label className="block text-xs font-semibold text-text mb-1">
+                  Delivery / Home Address
                 </label>
                 <input
                   type="text"
                   value={customerAddress}
                   onChange={(e) => setCustomerAddress(e.target.value)}
-                  placeholder="e.g. Nyamata Sector, Bugesera"
+                  placeholder="Nyamata Sector, Near Market"
                   className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-text focus:border-primary focus:outline-none"
                 />
               </div>
             </div>
           </Card>
 
-          {/* Step 2: Garments Selection */}
-          <Card className="p-4">
-            <h2 className="text-sm font-semibold mb-3 text-text">2. Garments Intake</h2>
+          {/* Step 2: Garment Items */}
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-bold text-text flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">
+                  2
+                </span>
+                Garment Inspection & Intake
+              </h2>
+            </div>
 
-            {/* Catalog Selector */}
+            {/* Quick Add dropdown */}
             <div className="mb-4 flex gap-2">
               <select
                 value={selectedGarmentId}
                 onChange={(e) => setSelectedGarmentId(e.target.value)}
-                className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-text focus:border-primary focus:outline-none"
+                className="flex-1 rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-text focus:border-primary focus:outline-none"
               >
                 {MASTER_GARMENTS.map((g) => (
                   <option key={g.id} value={g.id}>
-                    {g.name} — {g.normalPrice.toLocaleString()} RWF
+                    {g.name} — {g.normalPrice.toLocaleString()} RWF ({g.category})
                   </option>
                 ))}
               </select>
-              <Button type="button" onClick={handleAddGarment} size="sm">
-                <Plus className="h-4 w-4 mr-1" /> Add
+              <Button type="button" variant="secondary" onClick={handleAddGarment}>
+                <Plus className="mr-1 h-3.5 w-3.5" /> Add Item
               </Button>
             </div>
 
-            {/* Selected Items List */}
+            {/* Selected Garments Table */}
             {items.length === 0 ? (
-              <p className="text-xs text-text-muted italic text-center py-4 border border-dashed border-border rounded">
-                No garments added yet. Select from catalog above.
-              </p>
+              <div className="rounded border border-dashed border-border/80 p-4 text-center text-xs text-text-muted">
+                No garments added yet. Select garments above to build the order.
+              </div>
             ) : (
-              <div className="divide-y divide-border border border-border rounded">
-                {items.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-2.5 text-xs">
-                    <div>
-                      <span className="font-semibold text-text">{item.garmentName}</span>
-                      <span className="block text-[11px] text-text-muted">
-                        {item.unitPrice.toLocaleString()} RWF / unit
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center border border-border rounded">
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateGarmentQty(idx, -1)}
-                          className="px-2 py-0.5 text-text-muted hover:bg-border/30"
-                        >
-                          -
-                        </button>
-                        <span className="px-2.5 font-semibold text-text">{item.quantity}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateGarmentQty(idx, 1)}
-                          className="px-2 py-0.5 text-text-muted hover:bg-border/30"
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      <span className="w-20 text-right font-mono font-semibold text-text">
-                        {(item.quantity * item.unitPrice).toLocaleString()} RWF
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveGarment(idx)}
-                        className="text-rose-500 hover:text-rose-700 p-1"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto rounded border border-border">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-border bg-border/20 text-text-muted uppercase text-[10px] font-medium">
+                    <tr>
+                      <th className="px-3 py-2">Garment Item</th>
+                      <th className="px-3 py-2 text-center w-20">Qty</th>
+                      <th className="px-3 py-2 text-right">Unit Price</th>
+                      <th className="px-3 py-2 text-right">Subtotal</th>
+                      <th className="px-3 py-2 text-center w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {items.map((item, idx) => (
+                      <tr key={idx} className="bg-surface">
+                        <td className="px-3 py-2 font-medium text-text">{item.garmentName}</td>
+                        <td className="px-3 py-2 text-center">
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateGarmentQty(idx, item.quantity - 1)}
+                              className="h-5 w-5 rounded border border-border bg-border/20 text-xs font-bold hover:bg-border"
+                            >
+                              -
+                            </button>
+                            <span className="w-5 text-center font-bold text-xs">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateGarmentQty(idx, item.quantity + 1)}
+                              className="h-5 w-5 rounded border border-border bg-border/20 text-xs font-bold hover:bg-border"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono text-text-muted">
+                          {item.unitPrice.toLocaleString()} RWF
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono font-bold text-text">
+                          {(item.quantity * item.unitPrice).toLocaleString()} RWF
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveGarment(idx)}
+                            className="text-rose-500 hover:text-rose-700"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </Card>
 
-          {/* Step 3: Priority Tier */}
-          <Card className="p-4">
-            <h2 className="text-sm font-semibold mb-3 text-text">3. Service Priority Tier</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <label
-                className={`cursor-pointer rounded-lg border p-3 flex flex-col items-center text-center transition-colors ${
+          {/* Step 3: Service Priority Tier */}
+          <Card className="p-5">
+            <h2 className="text-sm font-bold text-text mb-3 flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">
+                3
+              </span>
+              Processing Priority Tier
+            </h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div
+                onClick={() => setServiceTier('NORMAL')}
+                className={`cursor-pointer rounded-lg border p-3.5 transition-all ${
                   serviceTier === 'NORMAL'
-                    ? 'border-primary bg-primary-light/50 ring-2 ring-primary'
-                    : 'border-border bg-surface hover:bg-border/20'
+                    ? 'border-primary bg-primary-light/50 ring-2 ring-primary/20'
+                    : 'border-border hover:border-primary/50'
                 }`}
               >
-                <input
-                  type="radio"
-                  name="serviceTier"
-                  value="NORMAL"
-                  checked={serviceTier === 'NORMAL'}
-                  onChange={() => setServiceTier('NORMAL')}
-                  className="sr-only"
-                />
-                <span className="font-semibold text-xs text-text">Standard</span>
-                <span className="text-[11px] text-text-muted mt-1">48 hours</span>
-                <span className="text-[11px] font-bold text-primary mt-1">Base Price</span>
-              </label>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-text">Standard</span>
+                  {serviceTier === 'NORMAL' && <CheckCircle className="h-4 w-4 text-primary" />}
+                </div>
+                <div className="text-[11px] text-text-muted mt-1">2-3 days turnaround</div>
+                <div className="mt-2 text-xs font-bold text-primary font-mono">Standard Tariff</div>
+              </div>
 
-              <label
-                className={`cursor-pointer rounded-lg border p-3 flex flex-col items-center text-center transition-colors ${
+              <div
+                onClick={() => setServiceTier('EXPRESS')}
+                className={`cursor-pointer rounded-lg border p-3.5 transition-all ${
                   serviceTier === 'EXPRESS'
-                    ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-500'
-                    : 'border-border bg-surface hover:bg-border/20'
+                    ? 'border-primary bg-primary-light/50 ring-2 ring-primary/20'
+                    : 'border-border hover:border-primary/50'
                 }`}
               >
-                <input
-                  type="radio"
-                  name="serviceTier"
-                  value="EXPRESS"
-                  checked={serviceTier === 'EXPRESS'}
-                  onChange={() => setServiceTier('EXPRESS')}
-                  className="sr-only"
-                />
-                <span className="font-semibold text-xs text-amber-900">⚡ Express</span>
-                <span className="text-[11px] text-amber-700 mt-1">24 hours</span>
-                <span className="text-[11px] font-bold text-amber-800 mt-1">+50% Charge</span>
-              </label>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-amber-700">⚡ Express (24h)</span>
+                  {serviceTier === 'EXPRESS' && <CheckCircle className="h-4 w-4 text-primary" />}
+                </div>
+                <div className="text-[11px] text-text-muted mt-1">Next-day ready guaranteed</div>
+                <div className="mt-2 text-xs font-bold text-amber-700 font-mono">+50% Priority Fee</div>
+              </div>
 
-              <label
-                className={`cursor-pointer rounded-lg border p-3 flex flex-col items-center text-center transition-colors ${
+              <div
+                onClick={() => setServiceTier('SAME_DAY')}
+                className={`cursor-pointer rounded-lg border p-3.5 transition-all ${
                   serviceTier === 'SAME_DAY'
-                    ? 'border-rose-500 bg-rose-50 ring-2 ring-rose-500'
-                    : 'border-border bg-surface hover:bg-border/20'
+                    ? 'border-primary bg-primary-light/50 ring-2 ring-primary/20'
+                    : 'border-border hover:border-primary/50'
                 }`}
               >
-                <input
-                  type="radio"
-                  name="serviceTier"
-                  value="SAME_DAY"
-                  checked={serviceTier === 'SAME_DAY'}
-                  onChange={() => setServiceTier('SAME_DAY')}
-                  className="sr-only"
-                />
-                <span className="font-semibold text-xs text-rose-900">🔥 Same Day</span>
-                <span className="text-[11px] text-rose-700 mt-1">8 hours</span>
-                <span className="text-[11px] font-bold text-rose-800 mt-1">+100% Charge</span>
-              </label>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-rose-700">🔥 Same Day</span>
+                  {serviceTier === 'SAME_DAY' && <CheckCircle className="h-4 w-4 text-primary" />}
+                </div>
+                <div className="text-[11px] text-text-muted mt-1">Ready in 6-8 hours</div>
+                <div className="mt-2 text-xs font-bold text-rose-700 font-mono">+100% Priority Fee</div>
+              </div>
             </div>
           </Card>
 
-          {/* Step 4: Materials */}
-          <Card className="p-4">
-            <h2 className="text-sm font-semibold mb-3 text-text">4. Packaging Materials</h2>
-            <div className="space-y-2">
+          {/* Step 4: Packaging & Materials */}
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-bold text-text flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">
+                  4
+                </span>
+                Packaging & Delivery Materials
+              </h2>
+            </div>
+
+            <div className="flex flex-wrap gap-2 mb-3">
               {MASTER_MATERIALS.map((mat) => {
                 const isSelected = materials.some((m) => m.materialId === mat.id);
                 return (
-                  <div
+                  <Button
                     key={mat.id}
-                    onClick={() => handleToggleMaterial(mat.id)}
-                    className={`cursor-pointer flex items-center justify-between p-2.5 rounded border text-xs transition-colors ${
-                      isSelected
-                        ? 'border-primary bg-primary-light/30'
-                        : 'border-border bg-surface hover:bg-border/20'
-                    }`}
+                    type="button"
+                    variant={isSelected ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => handleAddMaterial(mat.id)}
+                    disabled={isSelected}
                   >
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => {}}
-                        className="rounded border-border text-primary focus:ring-primary"
-                      />
-                      <div>
-                        <span className="font-medium text-text">{mat.name}</span>
-                        <span className="block text-[10px] text-text-muted">{mat.description}</span>
-                      </div>
-                    </div>
-                    <span className="font-mono font-semibold text-text">
-                      {mat.unitPrice.toLocaleString()} RWF
-                    </span>
-                  </div>
+                    + {mat.name} ({mat.unitPrice} RWF)
+                  </Button>
                 );
               })}
+            </div>
+
+            <div className="space-y-2">
+              {materials.map((mat, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between rounded-md border border-border bg-border/10 p-2.5 text-xs"
+                >
+                  <div className="font-medium text-text">{mat.materialName}</div>
+                  <div className="flex items-center gap-3">
+                    <label className="inline-flex items-center gap-1.5 text-[11px] text-text-muted cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={mat.customerProvided}
+                        onChange={() => handleToggleMaterialProvided(idx)}
+                        className="rounded border-border text-primary focus:ring-0"
+                      />
+                      Customer Provided (Free)
+                    </label>
+
+                    {!mat.customerProvided && (
+                      <div className="flex items-center gap-1 font-mono">
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateMaterialQty(idx, mat.quantity - 1)}
+                          className="h-5 w-5 rounded border border-border bg-surface text-xs font-bold"
+                        >
+                          -
+                        </button>
+                        <span className="w-5 text-center font-bold text-xs">{mat.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateMaterialQty(idx, mat.quantity + 1)}
+                          className="h-5 w-5 rounded border border-border bg-surface text-xs font-bold"
+                        >
+                          +
+                        </button>
+                        <span className="ml-1 text-text font-bold">
+                          {(mat.quantity * mat.unitPrice).toLocaleString()} RWF
+                        </span>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveMaterial(idx)}
+                      className="text-rose-500 hover:text-rose-700"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </Card>
         </div>
 
-        {/* Order Summary & Actions Column */}
+        {/* Right Col: Bill Summary & Intake Confirmation */}
         <div className="space-y-6">
-          <Card className="p-4 sticky top-4">
-            <h2 className="text-sm font-semibold mb-3 text-text">Order Summary</h2>
+          <Card className="p-5 sticky top-4">
+            <h2 className="text-sm font-bold text-text mb-4 border-b border-border pb-2">
+              Order Pricing Summary
+            </h2>
 
-            <div className="space-y-2 text-xs border-b border-border pb-3">
+            <div className="space-y-2.5 text-xs">
               <div className="flex justify-between text-text-muted">
                 <span>Garments Subtotal:</span>
                 <span className="font-mono text-text">{garmentsSubtotal.toLocaleString()} RWF</span>
               </div>
 
               {priorityFee > 0 && (
-                <div className="flex justify-between text-amber-700">
-                  <span>Priority ({serviceTier}):</span>
+                <div className="flex justify-between text-amber-700 font-medium">
+                  <span>Priority Fee ({serviceTier}):</span>
                   <span className="font-mono">+{priorityFee.toLocaleString()} RWF</span>
                 </div>
               )}
 
-              {materialsSubtotal > 0 && (
-                <div className="flex justify-between text-text-muted">
-                  <span>Materials Charge:</span>
-                  <span className="font-mono text-text">+{materialsSubtotal.toLocaleString()} RWF</span>
-                </div>
-              )}
+              <div className="flex justify-between text-text-muted">
+                <span>Materials & Packaging:</span>
+                <span className="font-mono text-text">{materialsSubtotal.toLocaleString()} RWF</span>
+              </div>
 
-              <div className="flex justify-between items-center text-text-muted pt-1">
-                <span>Discount (RWF):</span>
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-text-muted">Discount (RWF):</span>
                 <input
                   type="number"
                   min="0"
                   value={discount}
-                  onChange={(e) => setDiscount(Number(e.target.value) || 0)}
-                  className="w-20 text-right rounded border border-border px-1.5 py-0.5 font-mono text-xs focus:border-primary focus:outline-none"
+                  onChange={(e) => setDiscount(Math.max(0, Number(e.target.value)))}
+                  className="w-24 rounded border border-border bg-surface px-2 py-1 text-right font-mono text-xs text-text focus:border-primary focus:outline-none"
                 />
+              </div>
+
+              <div className="border-t border-border pt-3 flex justify-between text-sm font-bold text-text">
+                <span>Total Amount:</span>
+                <span className="font-mono text-primary text-base">
+                  {totalAmount.toLocaleString()} RWF
+                </span>
               </div>
             </div>
 
-            {/* Total */}
-            <div className="my-3 flex justify-between items-center font-bold text-sm text-text">
-              <span>TOTAL:</span>
-              <span className="font-mono text-base text-primary">
-                {totalAmount.toLocaleString()} RWF
-              </span>
-            </div>
-
-            {/* Initial Payment Options */}
-            <div className="border-t border-border pt-3 space-y-3">
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-text">
+            {/* Payment Intake Section */}
+            <div className="mt-5 border-t border-border pt-4">
+              <label className="flex items-center gap-2 text-xs font-semibold text-text cursor-pointer mb-3">
                 <input
                   type="checkbox"
                   checked={payNow}
                   onChange={(e) => setPayNow(e.target.checked)}
-                  className="rounded border-border text-primary focus:ring-primary"
+                  className="rounded border-border text-primary focus:ring-0"
                 />
-                Record Initial Payment Now
+                Accept Payment Now (Full or Partial)
               </label>
 
               {payNow && (
-                <div className="space-y-2 pl-5">
+                <div className="space-y-3 rounded-lg border border-border bg-border/10 p-3 text-xs">
                   <div>
-                    <label className="block text-[11px] text-text-muted mb-0.5">Amount Paid (RWF)</label>
+                    <label className="block text-[11px] font-semibold text-text mb-1">
+                      Payment Amount (RWF)
+                    </label>
                     <input
                       type="number"
-                      min="0"
+                      min="1"
                       max={totalAmount}
                       value={paymentAmount}
-                      onChange={(e) => setPaymentAmount(Number(e.target.value) || 0)}
-                      className="w-full rounded border border-border px-2 py-1 font-mono text-xs text-text focus:border-primary focus:outline-none"
+                      onChange={(e) => setPaymentAmount(Number(e.target.value))}
+                      className="w-full rounded border border-border bg-surface px-3 py-1.5 font-mono text-xs text-text focus:border-primary focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] text-text-muted mb-0.5">Payment Method</label>
+                    <label className="block text-[11px] font-semibold text-text mb-1">
+                      Payment Method
+                    </label>
                     <select
                       value={paymentMethod}
                       onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                      className="w-full rounded border border-border px-2 py-1 text-xs text-text focus:border-primary focus:outline-none"
+                      className="w-full rounded border border-border bg-surface px-3 py-1.5 text-xs text-text focus:border-primary focus:outline-none"
                     >
-                      <option value="MOBILE_MONEY">Mobile Money (MTN/Airtel)</option>
+                      <option value="MOBILE_MONEY">Mobile Money (MoMo)</option>
                       <option value="CASH">Cash</option>
                       <option value="BANK_TRANSFER">Bank Transfer</option>
-                      <option value="CARD">Card</option>
+                      <option value="CARD">Card POS</option>
                     </select>
                   </div>
                 </div>
@@ -506,34 +631,46 @@ export function NewOrderPage() {
             </div>
 
             {/* Notes */}
-            <div className="mt-3">
-              <label className="block text-[11px] text-text-muted mb-1">Order Notes / Stains</label>
+            <div className="mt-4">
+              <label className="block text-xs font-semibold text-text mb-1">
+                Internal Intake Notes / Stains
+              </label>
               <textarea
                 rows={2}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. Special care for silk dress"
-                className="w-full rounded border border-border px-2 py-1 text-xs text-text focus:border-primary focus:outline-none"
+                placeholder="e.g. Small ink mark on collar, customer requested double press"
+                className="w-full rounded border border-border bg-surface p-2 text-xs text-text placeholder:text-text-muted focus:border-primary focus:outline-none"
               />
             </div>
 
-            {/* Create Trigger Button */}
-            <Button type="submit" className="w-full mt-4" size="lg">
-              <CheckCircle className="h-4 w-4 mr-1.5" /> Create Order & Print Slip
+            {submitError && (
+              <div className="mt-4">
+                <LoadError message={submitError} />
+              </div>
+            )}
+
+            {/* Submit CTA */}
+            <Button
+              type="submit"
+              size="lg"
+              className="mt-5 w-full text-center"
+              disabled={submitting || items.length === 0}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting Order...
+                </>
+              ) : (
+                'Confirm Intake & Print Slip'
+              )}
             </Button>
           </Card>
         </div>
       </form>
 
-      {/* Slip Modal Preview */}
-      <OrderSlipModal
-        order={createdOrder}
-        isOpen={isSlipOpen}
-        onClose={() => {
-          setIsSlipOpen(false);
-          navigate('/orders');
-        }}
-      />
+      {/* Slip Modal Popup */}
+      <OrderSlipModal isOpen={isSlipOpen} onClose={handleSlipClose} order={createdOrder} />
     </div>
   );
 }

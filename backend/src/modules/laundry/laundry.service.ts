@@ -62,7 +62,7 @@ export class LaundryService {
       .select('order.status', 'status')
       .addSelect('COUNT(order.id)', 'count')
       .groupBy('order.status')
-      .getRawMany();
+      .getRawMany<{ status: string; count: string }>();
 
     const stageMetrics: Record<string, number> = {};
     for (const row of counts) {

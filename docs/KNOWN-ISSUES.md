@@ -54,4 +54,16 @@ module code (mostly `no-unsafe-*` in `*.service.spec.ts`, plus a few in
 services/controllers). The Definition of Done requires lint to pass, so
 fix this before more feature work lands on these modules.
 
+Status: Resolved 2026-11-24 on `feat/e2e-testing` (PR #27): backend lint now
+reports 0 errors.
+
+## #6 — Public endpoints have no rate limiting
+
+`POST /api/v1/pickups/request` and `GET /api/v1/orders/track/:orderNumber`
+are public by design (the customer page). Order numbers are sequential, so
+anyone can step through them. Tracking still returns the full order,
+including the customer's phone and address. Add rate limiting and trim the
+public tracking response to what a customer needs before go-live (roadmap
+Phase 4, KNOWN-ISSUES #3).
+
 Status: Open (found 2026-11-24)
