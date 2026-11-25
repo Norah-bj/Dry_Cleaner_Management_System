@@ -177,6 +177,18 @@ erDiagram
   `'Morning (08:00 - 12:00)'` is removed. Values must be one of the
   Settings time windows once any are configured.
 
+## Implemented in Phase 3 (migration `1764100000000-CreateInventory`)
+
+- **`inventory_items`**: name (unique), category, unit, `stock_quantity`
+  (decimal, CHECK >= 0), `minimum_stock`, supplier (free text: no
+  suppliers table yet), `material_type` (unique, optional link to a
+  packaging material), `is_active`.
+- **`inventory_transactions`**: append-only ledger: type
+  (PURCHASE/USAGE/ADJUSTMENT), signed `quantity_change`, `quantity_after`,
+  `unit_cost`, supplier, notes, optional `order_id`, `created_by_user_id`.
+  `stock_quantity` is the current level and is updated only in the same
+  transaction as its ledger row (row locked), so the two never disagree.
+
 ## Key design decisions
 
 - **Order is the central entity.** Items, materials, payments, invoice,

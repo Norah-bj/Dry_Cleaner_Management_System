@@ -70,6 +70,14 @@ business rule that isn't listed, it must ask rather than invent one.
     status and notes (extends rule #8). Source: settled design decision,
     2026-11-24.
 
+15. **Packaging used on an order comes out of stock.** When the owner links a
+    stock item to a packaging material (bag, cover, hanger, envelope),
+    every order that uses that material takes it out of stock, unless the
+    customer brought their own. If there isn't enough, the order is refused
+    with a clear message and nothing is saved. Stock levels change only
+    through recorded purchases, usage and stock counts (a count needs a
+    reason). Source: rule #6 plus settled design decision, 2026-11-25.
+
 ## Open questions (not yet rules — do not implement as if decided)
 
 These map to the open questions in `docs/requirements/REQUIREMENTS.md`:

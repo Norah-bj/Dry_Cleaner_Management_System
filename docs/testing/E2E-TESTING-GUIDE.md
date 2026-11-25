@@ -29,7 +29,9 @@ Run from `backend/` unless noted. You need PostgreSQL running and
 - Specs: `test/app.e2e-spec.ts` (health, login, roles),
   `test/orders-lifecycle.e2e-spec.ts`, `test/payments-invoicing.e2e-spec.ts`,
   `test/logistics-driver.e2e-spec.ts`, `test/settings-staff.e2e-spec.ts`
-  (settings, price list, server-side pricing, discounts, staff accounts).
+  (settings, price list, server-side pricing, discounts, staff accounts),
+  `test/inventory.e2e-spec.ts` (stock never negative, order packaging usage
+  and rollback, history, low-stock list).
 
 ### Smoke test (`npm run test:smoke`)
 
@@ -70,8 +72,8 @@ npm run dev             # http://localhost:5173
 
 Sign in with the seeded admin. If the backend is stopped, every page must
 show a red "couldn't load…" message with a **Try again** button. No page
-may ever show sample orders, payments or drivers. The only exceptions are
-Inventory and Reports, which are marked "Preview only" until Phases 3 and 5.
+may ever show sample orders, payments or drivers. The only exception is
+Reports, which is marked "Preview only" until Phase 5.
 
 ### A. First-run setup (do this first; it's what the owner will do)
 
@@ -126,7 +128,21 @@ Inventory and Reports, which are marked "Preview only" until Phases 3 and 5.
     confirmation, and the pickup appears on the staff Pickup & Delivery
     page.
 
-### E. Server down
+### E. Inventory (owner or manager)
 
-18. Stop the backend and reload pages: each shows the red error message.
+19. **Inventory → Add Item**: "Hangers", counted in pcs, warn at 3, in stock
+    now 5, used on orders as **Hanger**.
+20. Make a New Order with 3 hangers (not customer's own). Inventory now
+    shows 2 and "Low", and the "Running low" box lists it. History shows
+    "Used on order ORD-…".
+21. Try a New Order with 5 hangers: it's refused with "Not enough Hangers
+    in stock", and no order is created.
+22. **Restock** 20, then a **Stock count** of 20 with a reason. History shows
+    each step. Try recording usage of more than is in stock: refused.
+23. Sign in as laundry staff: Inventory is visible but read-only. As a
+    receptionist: Inventory isn't in the menu.
+
+### F. Server down
+
+24. Stop the backend and reload pages: each shows the red error message.
     The customer page's pickup form says it couldn't send the request.
