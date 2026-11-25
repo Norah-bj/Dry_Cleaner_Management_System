@@ -5,9 +5,9 @@ Rwanda), covering the full order lifecycle: customer registration → garment
 intake → processing → payment → pickup/delivery.
 
 **Status:** In development, not yet in use at the shop. Auth, Customers,
-Orders, Laundry workflow, Payments and Pickups/Deliveries have backends.
-Inventory, Employees, Settings/pricing and Reports still run on browser-only
-mock data. The path to a working product, and the current phase, are in
+Orders, Laundry workflow, Payments, Pickups/Deliveries, staff accounts
+(Employees) and Settings (prices, payment methods, hours) have backends.
+Inventory and Reports still show sample data, marked "Preview only". The path to a working product, and the current phase, are in
 [docs/ROADMAP.md](docs/ROADMAP.md). See [docs/CHANGELOG.md](docs/CHANGELOG.md)
 for what's landed.
 
