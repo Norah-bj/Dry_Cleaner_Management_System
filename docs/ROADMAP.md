@@ -35,42 +35,47 @@ API call fails.
 Goal: `main` holds all the work that exists, and the client questions
 that block later phases are in progress.
 
+Status (2026-11-24): all work done; waiting for the owner to merge
+#26 → #27 and to send the question sheet (#28).
+
 - [ ] Run the backend against a fresh database with a real login and fix
-      what breaks. Done in PR #26: the API didn't boot, and orders,
-      status changes and payments returned 500. Waiting for merge.
-- [ ] Open a PR for `feat/e2e-testing` (Stages C and D) and merge it.
-      Opened as **draft** PR #27: lint fails, the E2E specs are mocked,
-      and the scenario runner can't fail. Owner decisions are listed in
-      the PR.
-- [ ] Run the backend unit, E2E and scenario tests and the frontend
-      contract check, and record the results in the PR. Done 2026-11-24;
-      results are in #26 and #27.
-- [ ] Send the owner the open questions from `REQUIREMENTS.md` in plain
-      language. Sheet in PR #28 (`docs/requirements/CLIENT-QUESTIONS.md`),
-      ready to send once merged.
+      what breaks. PR #26: the API didn't boot, and orders, status changes
+      and payments returned 500.
+- [ ] Merge `feat/e2e-testing` (Stages C and D). PR #27: fake checks
+      replaced with real E2E (real database) and smoke tests, fallbacks to
+      sample data removed, public pickup requests fixed, backend lint at 0.
+- [ ] Send the owner the questions the system can't answer by itself
+      (EBM, refunds/damage, delivery area and fees, messages, existing
+      records). PR #28 (`docs/requirements/CLIENT-QUESTIONS.md`).
 - [ ] Record each answer in `BUSINESS-RULES.md` (with source and date)
       as it arrives.
 - [ ] Update `CLAUDE.md` "Current phase" and `README.md` status (this PR).
 
-Depends on: nothing. Phase 2 and later need the client's answers.
+Depends on: nothing.
 
 ## Phase 2 — Staff accounts and real configuration
 
 Goal: the owner can create staff logins and set prices and business
 details, all stored in the database.
 
+Status (2026-11-24): built in PR #29 (stacked on #27), waiting for merge.
+
 - [ ] Users API and admin screen: create, edit and deactivate staff,
       assign roles (closes KNOWN-ISSUES #2).
-- [ ] Services and pricing module: service catalog × priority tier,
-      stored in the database and edited from Settings.
-- [ ] Orders take prices from the catalog on the server. The backend must
-      not trust a `unitPrice` sent by the client.
-- [ ] Business settings (name, TIN, phone, hours) stored in the database,
-      not localStorage.
-- [ ] Only the payment methods the client confirmed are offered.
-- [ ] Employees page reads real users and roles.
+- [ ] Price list: service catalog × speed, stored in the database and
+      edited from Settings.
+- [ ] Orders take prices from the catalog on the server; a client-sent
+      price is rejected.
+- [ ] Business settings (contact, WhatsApp, hours, time windows,
+      turnaround) stored in the database.
+- [ ] Payment methods, material charges and discount policy chosen by the
+      owner in Settings; only enabled methods are accepted.
+- [ ] Employees page reads real users and roles; drivers sign in and see
+      only their own jobs.
 
-Depends on: Phase 1 client answers (prices, payment methods, hours).
+Depends on: Phase 1 merged. **No longer depends on the client's answers**
+about prices, payment methods or hours: the owner enters those in Settings
+(BUSINESS-RULES #10).
 
 ## Phase 3 — Inventory backend
 
