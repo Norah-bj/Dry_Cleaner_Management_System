@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { LogisticsService } from './logistics.service';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { UpdateDeliveryDto } from './dto/update-delivery.dto';
 import { QueryDeliveriesDto } from './dto/query-logistics.dto';
@@ -56,7 +58,8 @@ export class DeliveriesController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateDeliveryDto: UpdateDeliveryDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.logisticsService.updateDelivery(id, updateDeliveryDto);
+    return this.logisticsService.updateDelivery(id, updateDeliveryDto, user);
   }
 }

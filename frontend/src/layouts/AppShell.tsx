@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { Navigate, NavLink, Outlet } from 'react-router-dom';
+import { useAuth } from '../features/auth/use-auth';
 import { Bell, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
 import { cn } from '../lib/cn';
-import { navGroups, mobileNavItems } from './nav-config';
+import { navGroups, mobileNavItems, canSee } from './nav-config';
 import { UserMenu } from './UserMenu';
 
 /**
@@ -17,6 +18,10 @@ import { UserMenu } from './UserMenu';
  */
 export function AppShell() {
   const [collapsed, setCollapsed] = useState(false);
+  const { user } = useAuth();
+
+  // Drivers use their own minimal job list, not the staff app.
+  if (user?.role === 'driver') return <Navigate to="/driver" replace />;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -49,7 +54,7 @@ export function AppShell() {
                 </p>
               )}
               <ul className="space-y-0.5">
-                {group.items.map((item) => (
+                {group.items.filter((item) => canSee(item, user?.role)).map((item) => (
                   <li key={item.path}>
                     <NavLink
                       to={item.path}

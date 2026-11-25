@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -13,36 +14,24 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { OrderStatus, ServiceTier } from '../entities/order.entity';
+import { OrderStatus, ServiceTier } from '../enums/order-enums';
 import { MaterialType } from '../entities/order-material.entity';
 
+/**
+ * One garment line. The price is NOT sent by the client: the server looks
+ * up the item in the owner's price list at the order's service speed.
+ */
 export class CreateOrderItemDto {
-  @ApiProperty({ example: 'Men Suit 2pc' })
-  @IsString()
-  @IsNotEmpty()
-  garmentName: string;
-
-  @ApiPropertyOptional({ example: 'Suits & Blazers' })
-  @IsString()
-  @IsOptional()
-  category?: string;
+  @ApiProperty({ description: 'Price list item UUID (GET /catalog/items)' })
+  @IsUUID()
+  serviceItemId: string;
 
   @ApiProperty({ example: 1 })
-  @IsNumber()
+  @IsInt()
   @Min(1)
   quantity: number;
 
-  @ApiProperty({ example: 5000 })
-  @IsNumber()
-  @Min(0)
-  unitPrice: number;
-
-  @ApiPropertyOptional({ enum: ServiceTier, default: ServiceTier.STANDARD })
-  @IsEnum(ServiceTier)
-  @IsOptional()
-  serviceTier?: ServiceTier;
-
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'Small ink mark on collar' })
   @IsString()
   @IsOptional()
   notes?: string;
@@ -54,19 +43,15 @@ export class CreateOrderMaterialDto {
   materialType: MaterialType;
 
   @ApiProperty({ example: 2 })
-  @IsNumber()
+  @IsInt()
   @Min(1)
   quantity: number;
 
+  /** Charged at zero when true (business rule #4). Otherwise the charge comes from Settings. */
   @ApiPropertyOptional({ default: false })
   @IsBoolean()
   @IsOptional()
   customerProvided?: boolean;
-
-  @ApiProperty({ example: 300 })
-  @IsNumber()
-  @Min(0)
-  unitCharge: number;
 }
 
 export class CreateOrderDto {

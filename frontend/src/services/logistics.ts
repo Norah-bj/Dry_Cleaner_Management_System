@@ -14,7 +14,7 @@ export interface ApiPickup {
   orderId?: string;
   pickupAddress: string;
   scheduledDate: string;
-  timeSlot: string;
+  timeSlot: string | null;
   status:
     | 'REQUESTED'
     | 'SCHEDULED'
@@ -42,7 +42,7 @@ export interface ApiDelivery {
   };
   deliveryAddress: string;
   scheduledDate: string;
-  timeSlot: string;
+  timeSlot: string | null;
   amountCollectable: number;
   status:
     | 'SCHEDULED'
@@ -57,10 +57,28 @@ export interface ApiDelivery {
   createdAt: string;
 }
 
+/** One job as a driver sees it: no prices or payment status (business rule #8). */
+export interface DriverJob {
+  id: string;
+  type: 'PICKUP' | 'DELIVERY';
+  reference: string;
+  orderNumber: string | null;
+  status: string;
+  scheduledDate: string;
+  timeSlot: string | null;
+  customerName: string;
+  customerPhone: string;
+  address: string;
+  latitude: number | null;
+  longitude: number | null;
+  amountToCollect: number;
+  notes: string | null;
+}
+
 export interface DriverTasksFeed {
   driverId: string;
-  pickups: ApiPickup[];
-  deliveries: ApiDelivery[];
+  pickups: DriverJob[];
+  deliveries: DriverJob[];
   activePickupsCount: number;
   activeDeliveriesCount: number;
 }
@@ -71,6 +89,7 @@ export interface CreatePickupInput {
   pickupAddress: string;
   scheduledDate: string;
   timeSlot?: string;
+  status?: string;
   assignedDriverId?: string;
   assignedDriverName?: string;
   notes?: string;
@@ -90,6 +109,7 @@ export interface CreateDeliveryInput {
   deliveryAddress: string;
   scheduledDate: string;
   timeSlot?: string;
+  status?: string;
   amountCollectable?: number;
   assignedDriverId?: string;
   assignedDriverName?: string;
@@ -203,8 +223,7 @@ export function updateDelivery(
   });
 }
 
-export function getDriverTasks(driverId: string): Promise<DriverTasksFeed> {
-  return apiFetch<DriverTasksFeed>(`/drivers/${driverId}/tasks`, {
-    auth: false,
-  });
+/** The signed-in driver's own jobs. */
+export function getMyDriverTasks(): Promise<DriverTasksFeed> {
+  return apiFetch<DriverTasksFeed>('/drivers/me/tasks');
 }

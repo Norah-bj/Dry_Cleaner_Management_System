@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import {
   Order,
@@ -6,6 +10,8 @@ import {
   PaymentStatus,
   ServiceTier,
 } from './entities/order.entity';
+import { MaterialType } from './entities/order-material.entity';
+import { UserRole } from '../users/entities/user.entity';
 
 describe('OrdersService', () => {
   let service: OrdersService;
@@ -15,6 +21,22 @@ describe('OrdersService', () => {
   let statusHistoryRepo: Record<string, jest.Mock>;
   let customersRepo: Record<string, jest.Mock>;
   let dataSource: Record<string, jest.Mock>;
+  let catalogService: Record<string, jest.Mock>;
+  let settingsService: Record<string, jest.Mock>;
+  let settings: {
+    materialCharges: Record<string, number>;
+    allowDiscounts: boolean;
+    discountRoles: UserRole[];
+  };
+  const shirt = {
+    id: 'item-shirt',
+    name: 'Shirt',
+    category: null,
+    priceStandard: 1000,
+    priceExpress: 1500,
+    priceSameDay: null,
+    isActive: true,
+  };
 
   beforeEach(() => {
     ordersRepo = {
@@ -42,6 +64,16 @@ describe('OrdersService', () => {
       query: jest.fn().mockResolvedValue([{ num: 1 }]),
     };
 
+    catalogService = {
+      findByIds: jest.fn().mockResolvedValue([shirt]),
+    };
+    settings = {
+      materialCharges: { HANGER: 100 },
+      allowDiscounts: false,
+      discountRoles: [],
+    };
+    settingsService = { get: jest.fn(() => Promise.resolve(settings)) };
+
     service = new OrdersService(
       ordersRepo as never,
       orderItemsRepo as never,
@@ -49,70 +81,172 @@ describe('OrdersService', () => {
       statusHistoryRepo as never,
       customersRepo as never,
       dataSource as never,
+      catalogService as never,
+      settingsService as never,
     );
   });
 
+  const receptionist = { id: 'user-1', role: UserRole.RECEPTIONIST };
+
   describe('create', () => {
-    it('creates an order with calculated subtotal, materials, balance and initial history', async () => {
-      customersRepo.findOne.mockResolvedValue({
-        id: 'cust-1',
-        name: 'Alice',
-      });
+    beforeEach(() => {
+      customersRepo.findOne.mockResolvedValue({ id: 'cust-1', name: 'Alice' });
+      ordersRepo.findOne.mockResolvedValue({ id: 'order-uuid-1' });
+    });
 
-      ordersRepo.findOne.mockResolvedValue({
-        id: 'order-uuid-1',
-        orderNumber: 'ORD-2026-00001',
-        total: 5000,
-        balance: 5000,
-        paymentStatus: PaymentStatus.UNPAID,
-        status: OrderStatus.RECEIVED,
-      });
+    it('prices items from the price list at the order speed, not from the client', async () => {
+      await service.create(
+        {
+          customerId: 'cust-1',
+          serviceTier: ServiceTier.EXPRESS,
+          items: [{ serviceItemId: shirt.id, quantity: 2 }],
+          materials: [{ materialType: MaterialType.HANGER, quantity: 2 }],
+        },
+        receptionist,
+      );
 
-      const result = await service.create({
-        customerId: 'cust-1',
-        serviceTier: ServiceTier.STANDARD,
-        items: [{ garmentName: 'Suit 2pc', quantity: 1, unitPrice: 5000 }],
-      });
-
-      expect(customersRepo.findOne).toHaveBeenCalledWith({
-        where: { id: 'cust-1' },
-      });
       expect(ordersRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          subtotal: 5000,
-          total: 5000,
-          balance: 5000,
+          serviceTier: ServiceTier.EXPRESS,
+          subtotal: 3000, // 2 x 1500 express price
+          materialCharges: 200, // 2 x 100 from Settings
+          total: 3200,
+          balance: 3200,
           paymentStatus: PaymentStatus.UNPAID,
           status: OrderStatus.RECEIVED,
+          createdByUserId: 'user-1',
         }),
       );
+      const created = (
+        ordersRepo.create.mock.calls[0] as [
+          {
+            items: {
+              unitPrice: number;
+              garmentName: string;
+              serviceItemId: string;
+            }[];
+          },
+        ]
+      )[0];
+      expect(created.items[0]).toMatchObject({
+        unitPrice: 1500,
+        garmentName: 'Shirt',
+        serviceItemId: shirt.id,
+      });
       expect(statusHistoryRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          newStatus: OrderStatus.RECEIVED,
-        }),
+        expect.objectContaining({ newStatus: OrderStatus.RECEIVED }),
       );
-      expect(result.id).toBe('order-uuid-1');
+    });
+
+    it('rejects an item with no price for the chosen speed', async () => {
+      await expect(
+        service.create(
+          {
+            customerId: 'cust-1',
+            serviceTier: ServiceTier.SAME_DAY,
+            items: [{ serviceItemId: shirt.id, quantity: 1 }],
+          },
+          receptionist,
+        ),
+      ).rejects.toThrow(/no Same-Day price/);
+    });
+
+    it('rejects an item that is not on the active price list', async () => {
+      catalogService.findByIds.mockResolvedValue([
+        { ...shirt, isActive: false },
+      ]);
+      await expect(
+        service.create(
+          {
+            customerId: 'cust-1',
+            items: [{ serviceItemId: shirt.id, quantity: 1 }],
+          },
+          receptionist,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('charges customer-provided materials at zero, even with no charge set (rule #4)', async () => {
+      await service.create(
+        {
+          customerId: 'cust-1',
+          items: [{ serviceItemId: shirt.id, quantity: 1 }],
+          materials: [
+            {
+              materialType: MaterialType.BAG,
+              quantity: 1,
+              customerProvided: true,
+            },
+          ],
+        },
+        receptionist,
+      );
+      expect(ordersRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ materialCharges: 0, total: 1000 }),
+      );
+    });
+
+    it('rejects a material whose charge the owner has not set', async () => {
+      await expect(
+        service.create(
+          {
+            customerId: 'cust-1',
+            items: [{ serviceItemId: shirt.id, quantity: 1 }],
+            materials: [{ materialType: MaterialType.BAG, quantity: 1 }],
+          },
+          receptionist,
+        ),
+      ).rejects.toThrow(/No charge is set for bags/);
+    });
+
+    it('refuses discounts unless the owner allows them for that role', async () => {
+      const order = {
+        customerId: 'cust-1',
+        items: [{ serviceItemId: shirt.id, quantity: 1 }],
+        discount: 100,
+      };
+      await expect(service.create(order, receptionist)).rejects.toThrow(
+        ForbiddenException,
+      );
+
+      settings.allowDiscounts = true;
+      settings.discountRoles = [UserRole.RECEPTIONIST];
+      await service.create(order, receptionist);
+      expect(ordersRepo.create).toHaveBeenLastCalledWith(
+        expect.objectContaining({ discount: 100, total: 900 }),
+      );
+    });
+
+    it('never lets a discount exceed the order total', async () => {
+      settings.allowDiscounts = true;
+      await expect(
+        service.create(
+          {
+            customerId: 'cust-1',
+            items: [{ serviceItemId: shirt.id, quantity: 1 }],
+            discount: 5000,
+          },
+          { id: 'owner', role: UserRole.SUPER_ADMIN },
+        ),
+      ).rejects.toThrow(/larger than the order total/);
     });
 
     it('throws NotFoundException if customer does not exist', async () => {
       customersRepo.findOne.mockResolvedValue(null);
-
       await expect(
-        service.create({
-          customerId: 'missing-cust',
-          items: [{ garmentName: 'Shirt', quantity: 1, unitPrice: 1000 }],
-        }),
+        service.create(
+          {
+            customerId: 'missing-cust',
+            items: [{ serviceItemId: shirt.id, quantity: 1 }],
+          },
+          receptionist,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('throws BadRequestException if items array is empty', async () => {
-      customersRepo.findOne.mockResolvedValue({ id: 'cust-1' });
-
       await expect(
-        service.create({
-          customerId: 'cust-1',
-          items: [],
-        }),
+        service.create({ customerId: 'cust-1', items: [] }, receptionist),
       ).rejects.toThrow(BadRequestException);
     });
   });

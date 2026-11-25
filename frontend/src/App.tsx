@@ -39,12 +39,12 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      {/* Driver mobile view — no sidebar, no auth guard; accessed via shared link */}
-      <Route path="/driver/:driverId" element={<DriverMobileView />} />
       {/* Customer-facing mobile web — public, no auth */}
       <Route path="/customer" element={<CustomerMobilePage />} />
 
       <Route element={<RequireAuth />}>
+        {/* Driver job list: signed-in drivers only, no staff sidebar. */}
+        <Route path="/driver" element={<DriverMobileView />} />
         <Route element={<AppShell />}>
           {allNavItems.map((item) => {
             const Page = PAGES[item.path];

@@ -20,6 +20,11 @@ export class OrderItem {
   @JoinColumn({ name: 'order_id' })
   order: Order;
 
+  /** Link to the price list line this was priced from (null for older orders). */
+  @Column({ name: 'service_item_id', type: 'uuid', nullable: true })
+  serviceItemId: string | null;
+
+  /** Name and price are copied at order time, so later price changes don't rewrite history. */
   @Column({ name: 'garment_name' })
   garmentName: string;
 

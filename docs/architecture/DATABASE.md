@@ -155,6 +155,28 @@ erDiagram
     }
 ```
 
+## Implemented in Phase 2 (migration `1764000000000-SettingsCatalogStaff`)
+
+- **`business_settings`**: a single row (`id = 1`, enforced by a CHECK).
+  It holds the owner-controlled values: contact details, opening hours
+  (jsonb), time windows (jsonb), enabled payment methods (jsonb), material
+  charge per type (jsonb; a missing type means "not set"), turnaround text
+  per speed, discount policy, and receipt footer. The migration seeds only
+  documented facts (business name, owner, location). No prices, hours or
+  methods are seeded.
+- **`service_items`**: the price list. Name (unique), category, and a
+  nullable price per speed (`price_standard`, `price_express`,
+  `price_same_day`; null = that speed isn't offered). Rows are deactivated,
+  never deleted.
+- **`order_items.service_item_id`**: nullable FK to the price list line an
+  order line was priced from. Name and unit price are still copied onto
+  the order line, so price changes never rewrite past orders.
+- **`users.phone`**: optional staff phone number.
+- **`pickup_requests.time_slot` / `delivery_requests.time_slot`**: now
+  nullable, with no default. The old invented default
+  `'Morning (08:00 - 12:00)'` is removed. Values must be one of the
+  Settings time windows once any are configured.
+
 ## Key design decisions
 
 - **Order is the central entity.** Items, materials, payments, invoice,

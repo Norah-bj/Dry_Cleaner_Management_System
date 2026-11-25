@@ -15,6 +15,7 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/strategies/jwt.strategy';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
@@ -35,9 +36,9 @@ export class OrdersController {
   @ApiOperation({ summary: 'Create a new order intake' })
   create(
     @Body() createOrderDto: CreateOrderDto,
-    @CurrentUser('id') userId?: string,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.ordersService.create(createOrderDto, userId);
+    return this.ordersService.create(createOrderDto, user);
   }
 
   @Get()
@@ -54,7 +55,7 @@ export class OrdersController {
     summary: 'Public order tracking by order number (no auth required)',
   })
   trackOrder(@Param('orderNumber') orderNumber: string) {
-    return this.ordersService.findByOrderNumber(orderNumber);
+    return this.ordersService.trackPublic(orderNumber);
   }
 
   @Get(':id')
@@ -69,8 +70,9 @@ export class OrdersController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateOrderDto: UpdateOrderDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.ordersService.update(id, updateOrderDto);
+    return this.ordersService.update(id, updateOrderDto, user);
   }
 
   @Patch(':id/status')

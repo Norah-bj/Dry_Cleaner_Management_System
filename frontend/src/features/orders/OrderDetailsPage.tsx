@@ -13,7 +13,9 @@ import { errorMessage } from '../../lib/error-message';
 import { mapApiOrderToOrder } from '../../services/order-mapper';
 import { getOrder, updateOrderStatus } from '../../services/orders';
 import { recordOrderPayment } from '../../services/payments';
-import type { LaundryStage, Order, PaymentMethod } from '../../types/order';
+import type { LaundryStage, Order } from '../../types/order';
+import { getSettings } from '../../services/settings';
+import { PAYMENT_METHOD_LABELS, type ApiPaymentMethod } from '../../types/settings';
 
 const STAGES: LaundryStage[] = [
   'RECEIVED',
@@ -40,7 +42,18 @@ export function OrderDetailsPage() {
   // Payment modal state
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [payAmount, setPayAmount] = useState<number>(0);
-  const [payMethod, setPayMethod] = useState<PaymentMethod>('MOBILE_MONEY');
+  const [payMethod, setPayMethod] = useState<ApiPaymentMethod | ''>('');
+  const [enabledMethods, setEnabledMethods] = useState<ApiPaymentMethod[]>([]);
+
+  // Only the payment methods the owner enabled in Settings.
+  useEffect(() => {
+    getSettings()
+      .then((s) => {
+        setEnabledMethods(s.enabledPaymentMethods);
+        setPayMethod(s.enabledPaymentMethods[0] ?? '');
+      })
+      .catch(() => setEnabledMethods([]));
+  }, []);
 
   const fetchOrderDetail = useCallback(async () => {
     if (!id) return;
@@ -93,13 +106,13 @@ export function OrderDetailsPage() {
 
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (payAmount <= 0 || !id) return;
+    if (payAmount <= 0 || !id || !payMethod) return;
     setSaving(true);
     setActionError(null);
     try {
       await recordOrderPayment(id, {
         amount: payAmount,
-        paymentMethod: payMethod === 'MOBILE_MONEY' ? 'MOMO' : payMethod,
+        paymentMethod: payMethod as ApiPaymentMethod,
         notes: 'Payment recorded via Order Details',
       });
       setIsPaymentOpen(false);
@@ -391,13 +404,13 @@ export function OrderDetailsPage() {
                 <label className="block font-semibold text-text mb-1">Payment Method</label>
                 <select
                   value={payMethod}
-                  onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
+                  onChange={(e) => setPayMethod(e.target.value as ApiPaymentMethod)}
                   className="w-full rounded border border-border bg-surface px-3 py-1.5 text-text focus:border-primary focus:outline-none"
                 >
-                  <option value="MOBILE_MONEY">Mobile Money (MoMo)</option>
-                  <option value="CASH">Cash</option>
-                  <option value="BANK_TRANSFER">Bank Transfer</option>
-                  <option value="CARD">Card POS</option>
+                  {enabledMethods.length === 0 && <option value="">No payment methods enabled in Settings</option>}
+                  {enabledMethods.map((m) => (
+                    <option key={m} value={m}>{PAYMENT_METHOD_LABELS[m]}</option>
+                  ))}
                 </select>
               </div>
 

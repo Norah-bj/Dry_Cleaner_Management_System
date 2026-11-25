@@ -45,6 +45,8 @@ describe('LogisticsService', () => {
       ordersRepo as never,
       dataSource as never,
       { create: jest.fn() } as never,
+      { get: jest.fn().mockResolvedValue({ timeSlots: [] }) } as never,
+      { findById: jest.fn() } as never,
     );
   });
 
