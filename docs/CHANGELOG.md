@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-11-24 (Fix: backend failed against a real database)
+
+**Phase:** Roadmap Phase 1 (verify what's built)
+
+The first run of the backend against a fresh PostgreSQL database with a real
+login found four bugs on `main`. The unit and E2E tests missed all of them
+because they mock the services and bypass auth:
+
+- **API did not start.** `OrderStatusHistory` imported `OrderStatus` through
+  a circular import, so TypeORM saw an undefined enum and refused to boot.
+  It now imports from `orders/enums/order-enums.ts`.
+- **Creating an order, changing status, and recording a payment returned
+  500.** `@CurrentUser('id')` ignored its argument and returned the whole
+  user object, which was then written into uuid columns. The decorator now
+  returns the requested field. Added `current-user.decorator.spec.ts`.
+- **Recording a payment returned 500.** The order was locked `FOR UPDATE`
+  while its eager relations loaded via LEFT JOIN, which Postgres rejects.
+  The lock now skips eager relations (`loadEagerRelations: false`).
+- **Invoices could not be saved.** The entity column `totalAmount` did not
+  match the migration's `total_amount`. Mapped the entity to `total_amount`.
+  No migration changed.
+
+Verified with a live smoke test on the scratch database
+`edcms_phase1_check`: 19/19 calls pass (login, customer, order, status
+change, partial and full payment, invoice row written, public tracking,
+pickup, delivery). Remaining naming drift and lint backlog are logged in
+`KNOWN-ISSUES.md` (#4, #5).
+
+---
+
 ## 2026-11-11 (Roadmap to a working product)
 
 Added `docs/ROADMAP.md`: seven phases from the current code to go-live
