@@ -9,11 +9,15 @@ import { DeliveryRequest } from './entities/delivery-request.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { Order } from '../orders/entities/order.entity';
 import { CustomersModule } from '../customers/customers.module';
+import { SettingsModule } from '../settings/settings.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([PickupRequest, DeliveryRequest, Customer, Order]),
     CustomersModule,
+    SettingsModule,
+    UsersModule,
   ],
   controllers: [PickupsController, DeliveriesController, DriversController],
   providers: [LogisticsService],

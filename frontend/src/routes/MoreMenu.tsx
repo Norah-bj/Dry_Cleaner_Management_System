@@ -1,6 +1,6 @@
 import { LogOut } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { allNavItems } from '../layouts/nav-config';
+import { allNavItems, canSee } from '../layouts/nav-config';
 import { cn } from '../lib/cn';
 import { useAuth } from '../features/auth/use-auth';
 import { ROLE_LABELS } from '../types/auth';
@@ -9,7 +9,9 @@ export function MoreMenu() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const pinned = new Set(['/', '/orders', '/laundry']);
-  const items = allNavItems.filter((item) => !pinned.has(item.path));
+  const items = allNavItems.filter(
+    (item) => !pinned.has(item.path) && canSee(item, user?.role),
+  );
 
   const handleLogout = () => {
     logout();

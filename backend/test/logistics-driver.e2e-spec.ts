@@ -8,6 +8,8 @@ import {
   createTestApp,
   createUserAndLogin,
   resetDatabase,
+  configureTestShop,
+  TEST_SLOTS,
 } from './utils/test-app';
 
 interface PickupBody {
@@ -36,6 +38,8 @@ describe('Pickups, deliveries and driver tasks (e2e, real database)', () => {
   beforeAll(async () => {
     app = await createTestApp();
     await resetDatabase(app);
+    const owner = await createUserAndLogin(app, UserRole.SUPER_ADMIN);
+    const shop = await configureTestShop(app, owner.token);
     receptionist = await createUserAndLogin(app, UserRole.RECEPTIONIST);
     driver = await createUserAndLogin(app, UserRole.DRIVER);
 
@@ -51,7 +55,7 @@ describe('Pickups, deliveries and driver tasks (e2e, real database)', () => {
       .set(auth(receptionist.token))
       .send({
         customerId,
-        items: [{ garmentName: 'Blanket', quantity: 1, unitPrice: 4000 }],
+        items: [{ serviceItemId: shop.blanketId, quantity: 1 }],
       })
       .expect(201);
     orderId = (order.body as { id: string }).id;
@@ -69,12 +73,12 @@ describe('Pickups, deliveries and driver tasks (e2e, real database)', () => {
         customerId,
         pickupAddress: 'Nyamata, near the market',
         scheduledDate: '2026-12-01',
-        timeSlot: '14:00-16:00',
+        timeSlot: TEST_SLOTS[1],
       })
       .expect(201);
     pickup = res.body as PickupBody;
     expect(pickup.pickupNumber).toMatch(/^PKP-\d{4}-\d{5}$/);
-    expect(pickup.timeSlot).toBe('14:00-16:00');
+    expect(pickup.timeSlot).toBe(TEST_SLOTS[1]);
   });
 
   it('does not let the public create pickups for an existing customer id', async () => {
@@ -96,7 +100,7 @@ describe('Pickups, deliveries and driver tasks (e2e, real database)', () => {
         phone: '0783 333 333',
         address: 'Nyamata, near the market',
         scheduledDate: '2026-12-03',
-        timeSlot: '08:00-10:00',
+        timeSlot: TEST_SLOTS[0],
       })
       .expect(201);
     const body = res.body as Record<string, unknown>;
@@ -122,6 +126,7 @@ describe('Pickups, deliveries and driver tasks (e2e, real database)', () => {
         phone: '0789999999',
         address: 'Kigali road',
         scheduledDate: '2026-12-03',
+        timeSlot: TEST_SLOTS[1],
       })
       .expect(201);
 
@@ -146,19 +151,41 @@ describe('Pickups, deliveries and driver tasks (e2e, real database)', () => {
       .expect(400);
   });
 
+  it('rejects a time window the owner has not set (rule #3)', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/pickups/request')
+      .send({
+        name: 'Late Caller',
+        phone: '0784444444',
+        address: 'Nyamata',
+        scheduledDate: '2026-12-03',
+        timeSlot: '22:00-23:00',
+      })
+      .expect(400);
+  });
+
+  it('only lets real driver logins be assigned', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/v1/pickups/${pickup.id}`)
+      .set(auth(receptionist.token))
+      .send({ assignedDriverId: receptionist.id })
+      .expect(400);
+  });
+
   it('assigns the pickup to a driver and moves it along', async () => {
     const res = await request(app.getHttpServer())
       .patch(`/api/v1/pickups/${pickup.id}`)
       .set(auth(receptionist.token))
       .send({
         assignedDriverId: driver.id,
-        assignedDriverName: 'E2E driver',
         status: 'DRIVER_ASSIGNED',
       })
       .expect(200);
+    // The driver's name comes from their account, not from the client.
     expect(res.body as PickupBody).toMatchObject({
       status: 'DRIVER_ASSIGNED',
       assignedDriverId: driver.id,
+      assignedDriverName: 'E2E driver',
     });
   });
 
@@ -170,23 +197,22 @@ describe('Pickups, deliveries and driver tasks (e2e, real database)', () => {
         orderId,
         deliveryAddress: 'Nyamata, near the market',
         scheduledDate: '2026-12-02',
-        timeSlot: '10:00-12:00',
+        timeSlot: TEST_SLOTS[0],
         assignedDriverId: driver.id,
-        assignedDriverName: 'E2E driver',
       })
       .expect(201);
     delivery = res.body as DeliveryBody;
     expect(delivery.deliveryNumber).toMatch(/^DLV-\d{4}-\d{5}$/);
   });
 
-  it('shows the driver their active pickups and deliveries', async () => {
+  it('shows the signed-in driver only their jobs, without prices (rule #8)', async () => {
     const res = await request(app.getHttpServer())
-      .get(`/api/v1/drivers/${driver.id}/tasks`)
+      .get('/api/v1/drivers/me/tasks')
       .set(auth(driver.token))
       .expect(200);
     const tasks = res.body as {
-      pickups: PickupBody[];
-      deliveries: DeliveryBody[];
+      pickups: Record<string, unknown>[];
+      deliveries: Record<string, unknown>[];
       activePickupsCount: number;
       activeDeliveriesCount: number;
     };
@@ -194,6 +220,55 @@ describe('Pickups, deliveries and driver tasks (e2e, real database)', () => {
     expect(tasks.deliveries.map((d) => d.id)).toEqual([delivery.id]);
     expect(tasks.activePickupsCount).toBe(1);
     expect(tasks.activeDeliveriesCount).toBe(1);
+
+    const job = tasks.deliveries[0];
+    expect(job).toMatchObject({
+      customerName: 'Delivery Customer',
+      customerPhone: '0783333333',
+      amountToCollect: 4000,
+    });
+    // No order totals, item prices or payment status in the driver's view.
+    for (const forbidden of [
+      'order',
+      'total',
+      'paymentStatus',
+      'items',
+      'balance',
+    ]) {
+      expect(job).not.toHaveProperty(forbidden);
+    }
+  });
+
+  it("does not show driver jobs without a login, or another driver's list to a driver", async () => {
+    await request(app.getHttpServer())
+      .get(`/api/v1/drivers/${driver.id}/tasks`)
+      .expect(401);
+    await request(app.getHttpServer())
+      .get(`/api/v1/drivers/${driver.id}/tasks`)
+      .set(auth(driver.token))
+      .expect(403);
+    await request(app.getHttpServer())
+      .get(`/api/v1/drivers/${driver.id}/tasks`)
+      .set(auth(receptionist.token))
+      .expect(200);
+  });
+
+  it("stops a driver from updating someone else's job or changing more than status", async () => {
+    const other = await createUserAndLogin(
+      app,
+      UserRole.DRIVER,
+      'driver2@e2e.test',
+    );
+    await request(app.getHttpServer())
+      .patch(`/api/v1/deliveries/${delivery.id}`)
+      .set(auth(other.token))
+      .send({ status: 'DELIVERED' })
+      .expect(403);
+    await request(app.getHttpServer())
+      .patch(`/api/v1/deliveries/${delivery.id}`)
+      .set(auth(driver.token))
+      .send({ amountCollectable: 0 })
+      .expect(403);
   });
 
   it('marks the delivery delivered', async () => {

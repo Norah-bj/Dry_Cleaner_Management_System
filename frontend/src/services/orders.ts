@@ -92,19 +92,17 @@ export interface CreateOrderInput {
   discount?: number;
   expectedCompletion?: string;
   notes?: string;
+  /** Prices are looked up on the server from the price list; never sent. */
   items: {
-    garmentName: string;
-    category?: string;
+    serviceItemId: string;
     quantity: number;
-    unitPrice: number;
-    serviceTier?: 'STANDARD' | 'EXPRESS' | 'SAME_DAY';
     notes?: string;
   }[];
+  /** Charges come from Settings on the server; customer-provided items are free. */
   materials?: {
     materialType: 'BAG' | 'COVER' | 'HANGER' | 'ENVELOPE';
     quantity: number;
     customerProvided?: boolean;
-    unitCharge: number;
   }[];
 }
 
@@ -137,8 +135,22 @@ export function getOrder(id: string): Promise<ApiOrder> {
   return apiFetch<ApiOrder>(`/orders/${id}`);
 }
 
-export function trackOrder(orderNumber: string): Promise<ApiOrder> {
-  return apiFetch<ApiOrder>(`/orders/track/${encodeURIComponent(orderNumber)}`, {
+/** What the public tracking endpoint returns: no phone, address or staff data. */
+export interface PublicTrackedOrder {
+  orderNumber: string;
+  customerFirstName: string;
+  status: string;
+  serviceTier: string;
+  expectedCompletion: string | null;
+  total: number;
+  amountPaid: number;
+  balance: number;
+  paymentStatus: string;
+  items: { garmentName: string; quantity: number }[];
+}
+
+export function trackOrder(orderNumber: string): Promise<PublicTrackedOrder> {
+  return apiFetch<PublicTrackedOrder>(`/orders/track/${encodeURIComponent(orderNumber)}`, {
     auth: false,
   });
 }

@@ -15,6 +15,7 @@ import { Order, PaymentStatus } from '../orders/entities/order.entity';
 import { RecordPaymentDto } from './dto/record-payment.dto';
 import { QueryPaymentsDto } from './dto/query-payments.dto';
 import { PaginatedResult } from '../../common/types/paginated-result';
+import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
 export class PaymentsService {
@@ -26,6 +27,7 @@ export class PaymentsService {
     @InjectRepository(Order)
     private readonly ordersRepository: Repository<Order>,
     private readonly dataSource: DataSource,
+    private readonly settingsService: SettingsService,
   ) {}
 
   private async generateReceiptNumber(): Promise<string> {
@@ -83,6 +85,20 @@ export class PaymentsService {
       if (paymentAmount <= 0) {
         throw new BadRequestException(
           'Payment amount must be greater than zero',
+        );
+      }
+
+      const settings = await this.settingsService.get();
+      if (!settings.enabledPaymentMethods.includes(dto.paymentMethod)) {
+        throw new BadRequestException(
+          `${dto.paymentMethod} is not an accepted payment method. The owner can enable it in Settings → Payments & Charges.`,
+        );
+      }
+
+      const balance = Number(order.balance);
+      if (paymentAmount > balance) {
+        throw new BadRequestException(
+          `Payment of ${paymentAmount} is more than the balance of ${balance}`,
         );
       }
 

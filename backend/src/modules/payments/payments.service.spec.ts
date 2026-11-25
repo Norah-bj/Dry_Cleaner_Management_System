@@ -58,6 +58,11 @@ describe('PaymentsService', () => {
       invoicesRepo as never,
       ordersRepo as never,
       dataSource as never,
+      {
+        get: jest.fn().mockResolvedValue({
+          enabledPaymentMethods: [PaymentMethod.CASH, PaymentMethod.MOMO],
+        }),
+      } as never,
     );
   });
 

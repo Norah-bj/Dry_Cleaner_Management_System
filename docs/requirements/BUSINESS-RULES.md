@@ -45,14 +45,39 @@ business rule that isn't listed, it must ask rather than invent one.
    customer's paper/receipt, alongside name, phone, item count, expected
    date, total, paid, and balance.
 
+10. **Client-owned values are entered by the owner in Settings, never
+    hard-coded.** Prices per service and speed, accepted payment methods,
+    material charges, opening hours, pickup/delivery time windows,
+    turnaround text and the discount policy are all stored in the database
+    and edited in Settings by a Super Admin or Manager. The system ships
+    with none of them filled in: the dashboard shows a setup checklist
+    until they are. Source: project decision, 2026-11-24, so the shop can
+    start without waiting on every answer and can change prices without a
+    code change.
+11. **Prices are set by the server.** An order line names a price-list item;
+    the server applies that item's price for the order's speed and copies
+    name and price onto the order. Later price changes don't alter past
+    orders. Source: settled design decision (roadmap Phase 2).
+12. **No overpayment.** A payment may not exceed the order's balance, and
+    only payment methods enabled in Settings are accepted. Source: settled
+    design decision, 2026-11-24 (change-giving isn't modelled).
+13. **Discounts are off unless the owner turns them on** in Settings and
+    picks which roles may give them. A Super Admin always may. A discount
+    can't exceed the order total, or reduce it below what's already been
+    paid. Source: project decision, 2026-11-24. The client hasn't stated a
+    discount policy, so the safe default is "none".
+14. **Drivers only see and update their own jobs**, and only the job's
+    status and notes (extends rule #8). Source: settled design decision,
+    2026-11-24.
+
 ## Open questions (not yet rules — do not implement as if decided)
 
 These map to the open questions in `docs/requirements/REQUIREMENTS.md`:
 
-- Exact price list per service × priority tier.
-- Which payment methods are actually active (cash/MoMo/bank/card).
+- ~~Exact price list per service × priority tier.~~ Entered by the owner in Settings (rule #10).
+- ~~Which payment methods are actually active.~~ Chosen by the owner in Settings (rule #10).
 - Discount, cancellation, and refund policy.
-- Business operating hours (constrains valid pickup/delivery windows).
+- ~~Business operating hours.~~ Entered by the owner in Settings, along with the time windows (rule #10).
 - Service/delivery area boundary, if any.
 - EBM receipt requirements — whether/how EDCMS must produce
   EBM-compliant receipts.

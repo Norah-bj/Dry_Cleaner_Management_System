@@ -11,11 +11,20 @@ import {
   Settings,
   type LucideIcon,
 } from 'lucide-react';
+import type { UserRole } from '../types/auth';
 
 export interface NavItem {
   label: string;
   path: string;
   icon: LucideIcon;
+  /** Only these roles see the item. Omitted = everyone. The API enforces the same rule. */
+  roles?: UserRole[];
+}
+
+const OWNER_AND_MANAGER: UserRole[] = ['super_admin', 'manager'];
+
+export function canSee(item: NavItem, role: UserRole | undefined): boolean {
+  return !item.roles || (!!role && item.roles.includes(role));
 }
 
 export interface NavGroup {
@@ -43,7 +52,7 @@ export const navGroups: NavGroup[] = [
       { label: 'Customers', path: '/customers', icon: Users },
       { label: 'Payments', path: '/payments', icon: Wallet },
       { label: 'Inventory', path: '/inventory', icon: Package },
-      { label: 'Employees', path: '/employees', icon: UserCog },
+      { label: 'Employees', path: '/employees', icon: UserCog, roles: OWNER_AND_MANAGER },
     ],
   },
   {
@@ -52,7 +61,7 @@ export const navGroups: NavGroup[] = [
   },
   {
     label: 'System',
-    items: [{ label: 'Settings', path: '/settings', icon: Settings }],
+    items: [{ label: 'Settings', path: '/settings', icon: Settings, roles: OWNER_AND_MANAGER }],
   },
 ];
 

@@ -8,6 +8,8 @@ import {
   createTestApp,
   createUserAndLogin,
   resetDatabase,
+  configureTestShop,
+  type TestShop,
 } from './utils/test-app';
 
 interface OrderBody {
@@ -33,10 +35,13 @@ describe('Orders and laundry workflow (e2e, real database)', () => {
   let laundry: TestUser;
   let customerId: string;
   let order: OrderBody;
+  let shop: TestShop;
 
   beforeAll(async () => {
     app = await createTestApp();
     await resetDatabase(app);
+    const owner = await createUserAndLogin(app, UserRole.SUPER_ADMIN);
+    shop = await configureTestShop(app, owner.token);
     receptionist = await createUserAndLogin(app, UserRole.RECEPTIONIST);
     laundry = await createUserAndLogin(app, UserRole.LAUNDRY_STAFF);
 
@@ -59,15 +64,10 @@ describe('Orders and laundry workflow (e2e, real database)', () => {
       .send({
         customerId,
         serviceTier: 'STANDARD',
-        items: [{ garmentName: 'Shirt', quantity: 2, unitPrice: 1000 }],
+        items: [{ serviceItemId: shop.shirtId, quantity: 2 }],
         materials: [
-          { materialType: 'HANGER', quantity: 2, unitCharge: 100 },
-          {
-            materialType: 'BAG',
-            quantity: 1,
-            unitCharge: 500,
-            customerProvided: true,
-          },
+          { materialType: 'HANGER', quantity: 2 },
+          { materialType: 'BAG', quantity: 1, customerProvided: true },
         ],
       })
       .expect(201);
@@ -124,11 +124,15 @@ describe('Orders and laundry workflow (e2e, real database)', () => {
     expect(board.columns.RECEIVED.map((o) => o.id)).not.toContain(order.id);
   });
 
-  it('lets anyone track an order by its number without logging in', async () => {
+  it('lets anyone track an order by number, without contact details', async () => {
     const res = await request(app.getHttpServer())
       .get(`/api/v1/orders/track/${order.orderNumber}`)
       .expect(200);
-    expect((res.body as OrderBody).status).toBe('SORTING');
+    const body = res.body as Record<string, unknown>;
+    expect(body.status).toBe('SORTING');
+    expect(body.customerFirstName).toBe('E2E');
+    expect(body).not.toHaveProperty('customer');
+    expect(JSON.stringify(body)).not.toContain('0781111111');
   });
 
   it('returns 404 when tracking an unknown order number', async () => {

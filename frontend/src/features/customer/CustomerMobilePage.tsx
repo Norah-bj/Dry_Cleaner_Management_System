@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircle, MessageCircle, Package, Phone, Search, Shirt, Loader2 } from 'lucide-react';
 import { ApiError } from '../../lib/api-client';
 import { trackOrder } from '../../services/orders';
 import { requestPickup } from '../../services/logistics';
+import { getPublicSettings } from '../../services/settings';
+import { DAY_NAMES, type PublicSettings } from '../../types/settings';
 
 /**
  * Customer Mobile Web — /customer
@@ -13,8 +15,12 @@ import { requestPickup } from '../../services/logistics';
  * No auth required. Phone-first layout.
  */
 
-const BUSINESS_PHONE = '0788000000';
-const WHATSAPP_URL = `https://wa.me/250${BUSINESS_PHONE.slice(1)}?text=Hello%20EBENEZER%2C%20I%20have%20a%20question.`;
+/** Rwandan local number (07…) to the international form wa.me needs (2507…). */
+function whatsappLink(number: string): string {
+  const digits = number.replace(/\D/g, '');
+  const intl = digits.startsWith('0') ? `250${digits.slice(1)}` : digits;
+  return `https://wa.me/${intl}?text=${encodeURIComponent('Hello EBENEZER, I have a question.')}`;
+}
 
 const STAGE_LABELS: Record<string, string> = {
   RECEIVED: 'Received',
@@ -66,7 +72,7 @@ function OrderTracker() {
       if (res) {
         setOrder({
           orderNumber: res.orderNumber,
-          customerName: res.customer?.name ?? 'Customer',
+          customerName: res.customerFirstName,
           currentStage: res.status,
           expectedCompletion: res.expectedCompletion,
           totalAmount: Number(res.total),
@@ -185,12 +191,12 @@ function OrderTracker() {
 }
 
 // ── Pickup Request Form ───────────────────────────────────────────────────────
-function PickupForm() {
+function PickupForm({ timeSlots }: { timeSlots: string[] }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [timeSlot, setTimeSlot] = useState('Morning (08:00 - 12:00)');
+  const [timeSlot, setTimeSlot] = useState(timeSlots[0] ?? '');
   const [notes, setNotes] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -204,7 +210,7 @@ function PickupForm() {
 
     setSubmitError(null);
     try {
-      await requestPickup({ name, phone, address, scheduledDate: date, timeSlot, notes: notes || undefined });
+      await requestPickup({ name, phone, address, scheduledDate: date, timeSlot: timeSlot || undefined, notes: notes || undefined });
       setSubmitted(true);
     } catch {
       setSubmitError("We couldn't send your request. Please try again, or call or WhatsApp us.");
@@ -281,16 +287,20 @@ function PickupForm() {
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Time Slot</label>
-          <select
-            value={timeSlot}
-            onChange={(e) => setTimeSlot(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 focus:border-emerald-500 focus:outline-none"
-          >
-            <option>Morning (08:00 - 12:00)</option>
-            <option>Afternoon (13:00 - 17:00)</option>
-            <option>Evening (17:00 - 19:00)</option>
-          </select>
+          <label className="block text-xs font-semibold text-slate-700 mb-1">Time window</label>
+          {timeSlots.length > 0 ? (
+            <select
+              value={timeSlot}
+              onChange={(e) => setTimeSlot(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 focus:border-emerald-500 focus:outline-none"
+            >
+              {timeSlots.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          ) : (
+            <p className="py-2.5 text-xs text-slate-500">The shop will call you to agree a time.</p>
+          )}
         </div>
       </div>
 
@@ -325,6 +335,16 @@ function PickupForm() {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export function CustomerMobilePage() {
   const [activeTab, setActiveTab] = useState<'track' | 'pickup'>('track');
+  // Contact details, hours and time windows come from the owner's Settings.
+  const [shop, setShop] = useState<PublicSettings | null>(null);
+
+  useEffect(() => {
+    getPublicSettings()
+      .then(setShop)
+      .catch(() => setShop(null));
+  }, []);
+
+  const openDays = (shop?.openingHours ?? []).filter((d) => !d.closed);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-16">
@@ -335,7 +355,7 @@ export function CustomerMobilePage() {
             <Shirt className="h-6 w-6 text-white" />
           </div>
         </div>
-        <h1 className="text-xl font-bold">EBENEZER Dry Cleaner</h1>
+        <h1 className="text-xl font-bold">{shop?.businessName ?? 'EBENEZER Dry Cleaner'}</h1>
         <p className="text-xs text-emerald-100 mt-1">Professional Laundry & Dry Cleaning • Nyamata</p>
 
         {/* Tab switch */}
@@ -362,26 +382,35 @@ export function CustomerMobilePage() {
       {/* Main Content */}
       <div className="p-4 max-w-md mx-auto">
         {activeTab === 'track' && <OrderTracker />}
-        {activeTab === 'pickup' && <PickupForm />}
+        {activeTab === 'pickup' && <PickupForm key={shop?.timeSlots.join() ?? ''} timeSlots={shop?.timeSlots ?? []} />}
 
         {/* Direct Contact CTAs */}
         <div className="mt-8 border-t border-slate-200 pt-6 space-y-2.5 text-center">
           <div className="text-xs text-slate-500 font-medium">Need immediate assistance?</div>
+          {openDays.length > 0 && (
+            <div className="text-[11px] text-slate-500">
+              {openDays.map((d) => `${DAY_NAMES[d.day].slice(0, 3)} ${d.open}–${d.close}`).join(' · ')}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
+            {shop?.phone && (
             <a
-              href={`tel:${BUSINESS_PHONE}`}
+              href={`tel:${shop.phone}`}
               className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
             >
               <Phone className="h-3.5 w-3.5 text-emerald-600" /> Call Shop
             </a>
+            )}
+            {shop?.whatsappNumber && (
             <a
-              href={WHATSAPP_URL}
+              href={whatsappLink(shop.whatsappNumber)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-1.5 rounded-xl bg-[#25D366] py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-[#20bd5a]"
             >
               <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
             </a>
+            )}
           </div>
         </div>
       </div>

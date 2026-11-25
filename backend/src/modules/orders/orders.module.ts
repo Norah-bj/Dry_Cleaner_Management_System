@@ -7,6 +7,8 @@ import { OrderItem } from './entities/order-item.entity';
 import { OrderMaterial } from './entities/order-material.entity';
 import { OrderStatusHistory } from './entities/order-status-history.entity';
 import { Customer } from '../customers/entities/customer.entity';
+import { CatalogModule } from '../catalog/catalog.module';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { Customer } from '../customers/entities/customer.entity';
       OrderStatusHistory,
       Customer,
     ]),
+    CatalogModule,
+    SettingsModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

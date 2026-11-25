@@ -30,7 +30,9 @@ export function LoginPage() {
 
   if (auth.isAuthenticated) {
     const redirectTo =
-      (location.state as { from?: string } | null)?.from ?? '/';
+      auth.user?.role === 'driver'
+        ? '/driver'
+        : ((location.state as { from?: string } | null)?.from ?? '/');
     return <Navigate to={redirectTo} replace />;
   }
 
@@ -38,9 +40,8 @@ export function LoginPage() {
     setFormError(null);
     try {
       await auth.login(values.email, values.password);
-      const redirectTo =
-        (location.state as { from?: string } | null)?.from ?? '/';
-      navigate(redirectTo, { replace: true });
+      // The Navigate above picks the destination (drivers go to /driver).
+      navigate((location.state as { from?: string } | null)?.from ?? '/', { replace: true });
     } catch (err) {
       setFormError(
         err instanceof ApiError && err.status === 401

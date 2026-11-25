@@ -47,8 +47,9 @@ export class PickupRequest {
   @Column({ type: 'date', name: 'scheduled_date' })
   scheduledDate: string;
 
-  @Column({ name: 'time_slot', default: 'Morning (08:00 - 12:00)' })
-  timeSlot: string;
+  /** One of the time windows the owner set in Settings (business rule #3). */
+  @Column({ name: 'time_slot', type: 'varchar', nullable: true })
+  timeSlot: string | null;
 
   @Column({
     type: 'enum',

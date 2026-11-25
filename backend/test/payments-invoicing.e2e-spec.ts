@@ -9,6 +9,7 @@ import {
   createTestApp,
   createUserAndLogin,
   resetDatabase,
+  configureTestShop,
 } from './utils/test-app';
 
 interface OrderBody {
@@ -41,6 +42,8 @@ describe('Payments and invoicing (e2e, real database)', () => {
   beforeAll(async () => {
     app = await createTestApp();
     await resetDatabase(app);
+    const owner = await createUserAndLogin(app, UserRole.SUPER_ADMIN);
+    const shop = await configureTestShop(app, owner.token);
     cashier = await createUserAndLogin(app, UserRole.CASHIER);
 
     const customer = await request(app.getHttpServer())
@@ -54,7 +57,7 @@ describe('Payments and invoicing (e2e, real database)', () => {
       .set(auth(cashier.token))
       .send({
         customerId: (customer.body as { id: string }).id,
-        items: [{ garmentName: 'Suit', quantity: 1, unitPrice: 3000 }],
+        items: [{ serviceItemId: shop.suitId, quantity: 1 }],
       })
       .expect(201);
     orderId = (order.body as OrderBody).id;
@@ -79,6 +82,22 @@ describe('Payments and invoicing (e2e, real database)', () => {
     expect(Number(order.amountPaid)).toBe(1000);
     expect(Number(order.balance)).toBe(2000);
     expect(order.paymentStatus).toBe('PARTIALLY_PAID');
+  });
+
+  it('refuses a payment larger than the balance', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/orders/${orderId}/payments`)
+      .set(auth(cashier.token))
+      .send({ amount: 2500, paymentMethod: 'CASH' })
+      .expect(400);
+  });
+
+  it('refuses a payment method the owner has not enabled', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/orders/${orderId}/payments`)
+      .set(auth(cashier.token))
+      .send({ amount: 500, paymentMethod: 'CARD' })
+      .expect(400);
   });
 
   it('settles the balance, marks the order PAID, and writes one invoice', async () => {

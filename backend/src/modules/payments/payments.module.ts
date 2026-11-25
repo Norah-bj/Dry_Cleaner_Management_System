@@ -6,8 +6,13 @@ import { Payment } from './entities/payment.entity';
 import { Invoice } from './entities/invoice.entity';
 import { Order } from '../orders/entities/order.entity';
 
+import { SettingsModule } from '../settings/settings.module';
+
 @Module({
-  imports: [TypeOrmModule.forFeature([Payment, Invoice, Order])],
+  imports: [
+    SettingsModule,
+    TypeOrmModule.forFeature([Payment, Invoice, Order]),
+  ],
   controllers: [PaymentsController],
   providers: [PaymentsService],
   exports: [PaymentsService],

@@ -13,6 +13,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { StatCard } from '../../components/ui/StatCard';
 import { useAuth } from '../auth/use-auth';
+import { SetupChecklist } from './SetupChecklist';
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -61,25 +62,18 @@ export function DashboardPage() {
               {dateFormatter.format(new Date())}
             </p>
             <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled
-                title="Coming once the Customers module exists"
-              >
-                + Customer
-              </Button>
-              <Button
-                size="sm"
-                disabled
-                title="Coming once the Orders module exists"
-              >
-                + New Order
-              </Button>
+              <Link to="/customers/new">
+                <Button size="sm" variant="secondary">+ Customer</Button>
+              </Link>
+              <Link to="/orders/new">
+                <Button size="sm">+ New Order</Button>
+              </Link>
             </div>
           </div>
         }
       />
+
+      {(user?.role === "super_admin" || user?.role === "manager") && <SetupChecklist />}
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard icon={ClipboardList} label="Today's Orders" value="0" />

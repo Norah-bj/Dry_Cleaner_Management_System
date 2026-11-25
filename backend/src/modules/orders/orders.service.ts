@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -20,6 +21,23 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 import { PaginatedResult } from '../../common/types/paginated-result';
+import { CatalogService } from '../catalog/catalog.service';
+import { priceForTier } from '../catalog/entities/service-item.entity';
+import { SettingsService } from '../settings/settings.service';
+import { BusinessSettings } from '../settings/entities/business-settings.entity';
+import { UserRole } from '../users/entities/user.entity';
+
+/** Who is creating/editing the order, for the discount policy. */
+export interface OrderActor {
+  id: string;
+  role: UserRole;
+}
+
+const TIER_LABELS: Record<ServiceTier, string> = {
+  [ServiceTier.STANDARD]: 'Standard',
+  [ServiceTier.EXPRESS]: 'Express',
+  [ServiceTier.SAME_DAY]: 'Same-Day',
+};
 
 @Injectable()
 export class OrdersService {
@@ -35,7 +53,36 @@ export class OrdersService {
     @InjectRepository(Customer)
     private readonly customersRepository: Repository<Customer>,
     private readonly dataSource: DataSource,
+    private readonly catalogService: CatalogService,
+    private readonly settingsService: SettingsService,
   ) {}
+
+  /**
+   * Discounts follow the owner's policy in Settings: off unless enabled, and
+   * only for the roles the owner chose (a Super Admin always may). A discount
+   * can never exceed the amount owed.
+   */
+  private assertDiscountAllowed(
+    discount: number,
+    amountBeforeDiscount: number,
+    actor: OrderActor | undefined,
+    settings: BusinessSettings,
+  ): void {
+    if (discount <= 0) return;
+    const roleAllowed =
+      actor?.role === UserRole.SUPER_ADMIN ||
+      (!!actor && settings.discountRoles.includes(actor.role));
+    if (!settings.allowDiscounts || !roleAllowed) {
+      throw new ForbiddenException(
+        'Discounts are not allowed for your role. The owner can change this in Settings.',
+      );
+    }
+    if (discount > amountBeforeDiscount) {
+      throw new BadRequestException(
+        'The discount is larger than the order total',
+      );
+    }
+  }
 
   private async generateOrderNumber(): Promise<string> {
     const year = new Date().getFullYear();
@@ -51,7 +98,8 @@ export class OrdersService {
     }
   }
 
-  async create(dto: CreateOrderDto, userId?: string): Promise<Order> {
+  async create(dto: CreateOrderDto, actor?: OrderActor): Promise<Order> {
+    const userId = actor?.id;
     const customer = await this.customersRepository.findOne({
       where: { id: dto.customerId },
     });
@@ -68,43 +116,74 @@ export class OrdersService {
       );
     }
 
-    const orderNumber = await this.generateOrderNumber();
+    const tier = dto.serviceTier ?? ServiceTier.STANDARD;
+    const settings = await this.settingsService.get();
 
-    // Calculate subtotal from items
+    // Prices come from the owner's price list, never from the client.
+    const catalog = await this.catalogService.findByIds([
+      ...new Set(dto.items.map((i) => i.serviceItemId)),
+    ]);
+    const byId = new Map(catalog.map((c) => [c.id, c]));
+
     let subtotal = 0;
     const items = dto.items.map((itemDto) => {
-      const lineTotal = Number(itemDto.unitPrice) * Number(itemDto.quantity);
+      const catalogItem = byId.get(itemDto.serviceItemId);
+      if (!catalogItem || !catalogItem.isActive) {
+        throw new BadRequestException(
+          `Service item ${itemDto.serviceItemId} is not on the active price list`,
+        );
+      }
+      const unitPrice = priceForTier(catalogItem, tier);
+      if (unitPrice === null) {
+        throw new BadRequestException(
+          `"${catalogItem.name}" has no ${TIER_LABELS[tier]} price. Set one in Settings → Services & Prices, or choose another speed.`,
+        );
+      }
+      const lineTotal = unitPrice * itemDto.quantity;
       subtotal += lineTotal;
       const item = new OrderItem();
-      item.garmentName = itemDto.garmentName;
-      item.category = itemDto.category ?? 'Standard';
+      item.serviceItemId = catalogItem.id;
+      item.garmentName = catalogItem.name;
+      item.category = catalogItem.category ?? 'Standard';
       item.quantity = itemDto.quantity;
-      item.unitPrice = itemDto.unitPrice;
+      item.unitPrice = unitPrice;
       item.lineTotal = lineTotal;
-      item.serviceTier =
-        itemDto.serviceTier ?? dto.serviceTier ?? ServiceTier.STANDARD;
+      item.serviceTier = tier;
       item.notes = itemDto.notes ?? null;
       return item;
     });
 
-    // Calculate material charges
+    // Material charges come from Settings; customer-supplied ones are zero (rule #4).
     let materialCharges = 0;
     const materials = (dto.materials ?? []).map((matDto) => {
-      const totalCharge = matDto.customerProvided
-        ? 0
-        : Number(matDto.unitCharge) * Number(matDto.quantity);
+      const customerProvided = matDto.customerProvided ?? false;
+      const configured = settings.materialCharges[matDto.materialType];
+      if (!customerProvided && configured === undefined) {
+        throw new BadRequestException(
+          `No charge is set for ${matDto.materialType.toLowerCase()}s. Set it in Settings → Payments & Charges (0 if you don't charge).`,
+        );
+      }
+      const unitCharge = customerProvided ? 0 : Number(configured);
+      const totalCharge = unitCharge * matDto.quantity;
       materialCharges += totalCharge;
       const mat = new OrderMaterial();
       mat.materialType = matDto.materialType;
       mat.quantity = matDto.quantity;
-      mat.customerProvided = matDto.customerProvided ?? false;
-      mat.unitCharge = matDto.unitCharge;
+      mat.customerProvided = customerProvided;
+      mat.unitCharge = unitCharge;
       mat.totalCharge = totalCharge;
       return mat;
     });
 
     const discount = Number(dto.discount ?? 0);
-    const total = Math.max(0, subtotal + materialCharges - discount);
+    this.assertDiscountAllowed(
+      discount,
+      subtotal + materialCharges,
+      actor,
+      settings,
+    );
+    const total = subtotal + materialCharges - discount;
+    const orderNumber = await this.generateOrderNumber();
     const amountPaid = 0;
     const balance = total;
     const initialStatus = dto.status ?? OrderStatus.RECEIVED;
@@ -112,7 +191,7 @@ export class OrdersService {
     const order = this.ordersRepository.create({
       orderNumber,
       customerId: dto.customerId,
-      serviceTier: dto.serviceTier ?? ServiceTier.STANDARD,
+      serviceTier: tier,
       status: initialStatus,
       storageHangerId: dto.storageHangerId ?? null,
       storageBoxId: dto.storageBoxId ?? null,
@@ -224,6 +303,32 @@ export class OrdersService {
     return order;
   }
 
+  /**
+   * Public tracking by order number. Order numbers are sequential, so this
+   * returns only what the customer needs - no phone, address or staff data.
+   * The first name lets the customer recognise their own order.
+   */
+  async trackPublic(orderNumber: string) {
+    const order = await this.findByOrderNumber(
+      orderNumber.trim().toUpperCase(),
+    );
+    return {
+      orderNumber: order.orderNumber,
+      customerFirstName: (order.customer?.name ?? '').split(' ')[0],
+      status: order.status,
+      serviceTier: order.serviceTier,
+      expectedCompletion: order.expectedCompletion,
+      total: Number(order.total),
+      amountPaid: Number(order.amountPaid),
+      balance: Number(order.balance),
+      paymentStatus: order.paymentStatus,
+      items: (order.items ?? []).map((i) => ({
+        garmentName: i.garmentName,
+        quantity: i.quantity,
+      })),
+    };
+  }
+
   async findByOrderNumber(orderNumber: string): Promise<Order> {
     const order = await this.ordersRepository.findOne({
       where: { orderNumber },
@@ -245,7 +350,11 @@ export class OrdersService {
     return order;
   }
 
-  async update(id: string, dto: UpdateOrderDto): Promise<Order> {
+  async update(
+    id: string,
+    dto: UpdateOrderDto,
+    actor?: OrderActor,
+  ): Promise<Order> {
     const order = await this.findOne(id);
 
     if (dto.storageHangerId !== undefined) {
@@ -263,15 +372,28 @@ export class OrdersService {
       order.notes = dto.notes;
     }
     if (dto.discount !== undefined) {
-      order.discount = Number(dto.discount);
-      order.total = Math.max(
-        0,
-        order.subtotal + order.materialCharges - order.discount,
+      // Decimal columns arrive as strings: convert before doing arithmetic.
+      const beforeDiscount =
+        Number(order.subtotal) + Number(order.materialCharges);
+      const discount = Number(dto.discount);
+      this.assertDiscountAllowed(
+        discount,
+        beforeDiscount,
+        actor,
+        await this.settingsService.get(),
       );
-      order.balance = Math.max(0, order.total - order.amountPaid);
+      const total = beforeDiscount - discount;
+      if (total < Number(order.amountPaid)) {
+        throw new BadRequestException(
+          'This discount would make the total less than what the customer already paid',
+        );
+      }
+      order.discount = discount;
+      order.total = total;
+      order.balance = total - Number(order.amountPaid);
       if (order.balance === 0 && order.total > 0) {
         order.paymentStatus = PaymentStatus.PAID;
-      } else if (order.amountPaid > 0) {
+      } else if (Number(order.amountPaid) > 0) {
         order.paymentStatus = PaymentStatus.PARTIALLY_PAID;
       } else {
         order.paymentStatus = PaymentStatus.UNPAID;

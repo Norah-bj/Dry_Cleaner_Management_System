@@ -1,3 +1,4 @@
+import { SampleDataBanner } from '../../components/ui/SampleDataBanner';
 import { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, Package, Plus, Search, ShoppingCart, XCircle } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
@@ -111,6 +112,7 @@ export function InventoryPage() {
 
   return (
     <div className="space-y-6">
+      <SampleDataBanner what="Stock levels and purchases" />
       <PageHeader
         title="Inventory"
         description="Stock and supplies for the laundry operations."
