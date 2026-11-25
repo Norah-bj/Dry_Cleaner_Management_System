@@ -34,7 +34,11 @@ export class PaymentsController {
     @Body() recordPaymentDto: RecordPaymentDto,
     @CurrentUser('id') userId?: string,
   ) {
-    return this.paymentsService.recordPayment(orderId, recordPaymentDto, userId);
+    return this.paymentsService.recordPayment(
+      orderId,
+      recordPaymentDto,
+      userId,
+    );
   }
 
   @Get('payments')
@@ -47,7 +51,8 @@ export class PaymentsController {
 
   @Get('payments/summary')
   @ApiOperation({
-    summary: 'Get daily collections breakdown and total outstanding receivables',
+    summary:
+      'Get daily collections breakdown and total outstanding receivables',
   })
   getSummary() {
     return this.paymentsService.getSummary();

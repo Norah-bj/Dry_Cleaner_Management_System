@@ -51,8 +51,7 @@ export class DeliveriesController {
     UserRole.DRIVER,
   )
   @ApiOperation({
-    summary:
-      'Update delivery status, driver assignment, or cash collectable',
+    summary: 'Update delivery status, driver assignment, or cash collectable',
   })
   update(
     @Param('id', ParseUUIDPipe) id: string,

@@ -12,6 +12,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { LogisticsService } from './logistics.service';
 import { CreatePickupDto } from './dto/create-pickup.dto';
 import { UpdatePickupDto } from './dto/update-pickup.dto';
+import { PublicPickupRequestDto } from './dto/public-pickup-request.dto';
 import { QueryPickupsDto } from './dto/query-logistics.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -24,12 +25,25 @@ export class PickupsController {
   constructor(private readonly logisticsService: LogisticsService) {}
 
   @Post()
-  @Public()
+  @Roles(UserRole.SUPER_ADMIN, UserRole.MANAGER, UserRole.RECEPTIONIST)
   @ApiOperation({
-    summary: 'Request / schedule a garment pickup (open to public / customers)',
+    summary: 'Schedule a pickup for an existing customer (staff)',
   })
   create(@Body() createPickupDto: CreatePickupDto) {
     return this.logisticsService.createPickup(createPickupDto);
+  }
+
+  /**
+   * Public customer page. Takes name/phone instead of a customer id so the
+   * public can't attach pickups to arbitrary customer records.
+   */
+  @Post('request')
+  @Public()
+  @ApiOperation({
+    summary: 'Customer pickup request from the public page (no login)',
+  })
+  requestPublic(@Body() dto: PublicPickupRequestDto) {
+    return this.logisticsService.requestPickupPublic(dto);
   }
 
   @Get()

@@ -1,14 +1,7 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import {
-  PickupRequest,
-  PickupStatus,
-} from './entities/pickup-request.entity';
+import { PickupRequest, PickupStatus } from './entities/pickup-request.entity';
 import {
   DeliveryRequest,
   DeliveryStatus,
@@ -16,13 +9,12 @@ import {
 import { Customer } from '../customers/entities/customer.entity';
 import { Order } from '../orders/entities/order.entity';
 import { CreatePickupDto } from './dto/create-pickup.dto';
+import { PublicPickupRequestDto } from './dto/public-pickup-request.dto';
+import { CustomersService } from '../customers/customers.service';
 import { UpdatePickupDto } from './dto/update-pickup.dto';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { UpdateDeliveryDto } from './dto/update-delivery.dto';
-import {
-  QueryDeliveriesDto,
-  QueryPickupsDto,
-} from './dto/query-logistics.dto';
+import { QueryDeliveriesDto, QueryPickupsDto } from './dto/query-logistics.dto';
 import { PaginatedResult } from '../../common/types/paginated-result';
 
 @Injectable()
@@ -37,14 +29,15 @@ export class LogisticsService {
     @InjectRepository(Order)
     private readonly ordersRepository: Repository<Order>,
     private readonly dataSource: DataSource,
+    private readonly customersService: CustomersService,
   ) {}
 
   private async generatePickupNumber(): Promise<string> {
     const year = new Date().getFullYear();
     try {
-      const result = (await this.dataSource.query(
+      const result = await this.dataSource.query<{ num: string }[]>(
         `SELECT nextval('pickup_number_seq') AS num`,
-      )) as Array<{ num: string | number }>;
+      );
       const seq = String(result[0].num).padStart(5, '0');
       return `PKP-${year}-${seq}`;
     } catch {
@@ -56,9 +49,9 @@ export class LogisticsService {
   private async generateDeliveryNumber(): Promise<string> {
     const year = new Date().getFullYear();
     try {
-      const result = (await this.dataSource.query(
+      const result = await this.dataSource.query<{ num: string }[]>(
         `SELECT nextval('delivery_number_seq') AS num`,
-      )) as Array<{ num: string | number }>;
+      );
       const seq = String(result[0].num).padStart(5, '0');
       return `DLV-${year}-${seq}`;
     } catch {
@@ -96,6 +89,42 @@ export class LogisticsService {
     });
 
     return this.pickupsRepository.save(pickup);
+  }
+
+  /**
+   * Public pickup request: reuse the customer with this exact phone, or
+   * register a new one, then create a REQUESTED pickup. Returns only the
+   * reference details - never other customers' data.
+   */
+  async requestPickupPublic(dto: PublicPickupRequestDto): Promise<{
+    pickupNumber: string;
+    scheduledDate: string;
+    timeSlot: string;
+  }> {
+    const phone = dto.phone.replace(/\s+/g, '');
+    let customer = await this.customersRepository.findOne({ where: { phone } });
+    if (!customer) {
+      customer = await this.customersService.create({
+        name: dto.name.trim(),
+        phone,
+        address: dto.address.trim(),
+      });
+    }
+
+    const pickup = await this.createPickup({
+      customerId: customer.id,
+      pickupAddress: dto.address.trim(),
+      scheduledDate: dto.scheduledDate,
+      timeSlot: dto.timeSlot,
+      status: PickupStatus.REQUESTED,
+      notes: dto.notes,
+    });
+
+    return {
+      pickupNumber: pickup.pickupNumber,
+      scheduledDate: pickup.scheduledDate,
+      timeSlot: pickup.timeSlot,
+    };
   }
 
   async findAllPickups(
